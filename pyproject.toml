@@ -1,0 +1,148 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# -----------------------------------------------------------------------------
+# Proyecto (PRAC1 - esqueleto del Simulador de Bolsa y Carteras).
+# -----------------------------------------------------------------------------
+[project]
+name = "bolsa-sim"
+version = "0.1.0"
+description = "Simulador de Bolsa y Carteras de Inversion con activos ficticios (Practica 1, TPA)."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+  { name = "dani-18 y colaboradores" },
+]
+keywords = ["simulador", "bolsa", "cartera", "finanzas", "tpa", "practica"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Topic :: Education",
+  "Topic :: Office/Business :: Financial :: Investment",
+]
+
+# El codigo del proyecto es SOLO biblioteca estandar (Tema 1 explicito).
+dependencies = []
+
+# Dependencias de desarrollo (instalables con: pip install -e .[dev]).
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "coverage>=7.0",
+  "black>=24.0",
+  "ruff>=0.6",
+  "reportlab>=4.0",        # solo para generar el PDF de la Propuesta (no runtime).
+  "pre-commit>=3.7",
+]
+docs = [
+  "pdoc>=14.0",
+]
+all = [
+  "bolsa-sim[dev,docs]",
+]
+
+[project.scripts]
+bolsa-sim = "bolsa_sim.__main__:cli"
+
+[project.urls]
+Repository = "https://github.com/dani-18/Practica1_Progra_Avanzada"
+Issues = "https://github.com/dani-18/Practica1_Progra_Avanzada/issues"
+
+# -----------------------------------------------------------------------------
+# setuptools: declarar el paquete de codigo en src/ y los datos.
+# -----------------------------------------------------------------------------
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+bolsa_sim = ["py.typed"]
+
+# -----------------------------------------------------------------------------
+# Pytest
+# -----------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--strict-config",
+]
+filterwarnings = [
+  "ignore::DeprecationWarning:pkg_resources",
+  "ignore::SyntaxWarning",
+]
+# "SyntaxWarning" se ignora porque el modulo ``bolsa_sim.memoria`` lo emite
+# de forma deliberada al intentar ``n is 10`` para explicar singletons; se
+# reescribio a ``id(n) == id(10)`` pero dejamos la politica abierta para
+# ejemplos didacticos futuros.
+
+# -----------------------------------------------------------------------------
+# Coverage (pytest-cov)
+# -----------------------------------------------------------------------------
+[tool.coverage.run]
+branch = true
+source = ["bolsa_sim"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if __name__ == '__main__':",
+]
+
+# -----------------------------------------------------------------------------
+# Black (formateado)
+# -----------------------------------------------------------------------------
+[tool.black]
+line-length = 99
+target-version = ["py310", "py311", "py312"]
+include = '\.pyi?$'
+
+# -----------------------------------------------------------------------------
+# Ruff (lint)
+# -----------------------------------------------------------------------------
+[tool.ruff]
+line-length = 99
+target-version = "py310"
+extend-exclude = ["build", "dist", ".venv", "venv"]
+
+[tool.ruff.lint]
+# Conjunto "practica academica": permite crecer sin romper, pero exigente.
+select = [
+  "E",   # pycodestyle errors
+  "W",   # pycodestyle warnings
+  "F",   # pyflakes
+  "I",   # isort
+  "B",   # flake8-bugbear
+  "UP",  # pyupgrade
+  "SIM", # flake8-simplify
+  "PL",  # pylint (subset)
+  "RUF", # ruff-specific
+]
+ignore = [
+  "PLR0913", # too many arguments (justificable en constructores de dominio)
+  "PLR2004", # magic value used in comparison (RNG y umbrales de demo)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PLR2004", "S101"]  # asserts y magic numbers en tests son esperados
+
+[tool.ruff.lint.isort]
+known-first-party = ["bolsa_sim"]
+
+# -----------------------------------------------------------------------------
+# mypy (opcional, lo declaramos para PRAC4; en PRAC1 ya se documenta)
+# -----------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_incomplete_defs = true
+ignore_missing_imports = true
