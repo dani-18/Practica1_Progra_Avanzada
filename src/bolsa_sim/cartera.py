@@ -1,182 +1,177 @@
-"""Cartera (Portfolio) y operaciones de compra/venta.
+"""``Cartera``: composicion por asociacion con ``Operacion`` y un ``Mercado``.
 
-Una ``Cartera`` mantiene un saldo en efectivo y un conjunto de
-posiciones indexadas por ticker. El registro historico de operaciones
-se almacena como **lista** porque la coleccion *crece* con el tiempo
-(alta, baja y reordenacion son operaciones naturales de un registro);
-este es el caso que, segun el Tema 1, exige lista y no tupla.
+Atributos (5):
 
-Notas de diseno:
+* ``propietario`` (str): nombre del titular, no vacio.
+* ``efectivo`` (float ``>= 0``): dinero disponible en EUR.
+* ``_inversiones`` (dict ``{instrumento_id: cantidad}``): estado
+  abierto por instrumento (interno, mutable a proposito).
+* ``comision`` (float ``>= 0``): comision por operacion.
+* ``_historial`` (list ``[Operacion]``): operaciones ejecutadas, en
+  orden. No se expone mutable fuera.
 
-* ``comprar`` y ``vender`` trabajan en cantidades enteras; las comisiones
-  son opcionales. Si una operacion no se puede ejecutar (fondos
-  insuficientes, cantidad invalida) se devuelve ``False`` y la cartera
-  queda intacta. Esto es una decision deliberada para que el caller
-  pueda reaccionar. En PRAC2 introduciremos excepciones de dominio.
+Los atributos ``efectivo`` y ``comision`` tienen ``@property``/setter
+con validacion. Las posiciones y las operaciones se manipulan a traves
+de metodos (``invertir``, ``desinvertir``, ``valor_total``).
 """
 
 from __future__ import annotations
 
-from typing import Final
+from math import isfinite
+from typing import TYPE_CHECKING
 
-from .activos import Posicion, TipoOperacion, Transaccion
-from .mercado import COMISION_POR_OPERACION, MercadoSimulado
+from .operacion import Operacion
 
-COMISION_MINIMA: Final[float] = 1.0
+if TYPE_CHECKING:
+    from .mercado import Mercado
 
 
 class Cartera:
-    """Cartera de inversion con efectivo en EUR y posiciones por ticker."""
+    """Cartera de inversion con efectivo, posiciones e historial."""
 
     def __init__(
         self,
-        efectivo_inicial: float,
-        *,
-        comision_por_operacion: float = COMISION_POR_OPERACION,
-        nombre: str = "Cartera",
+        propietario: str,
+        efectivo: float = 0.0,
+        comision: float = 0.0,
     ) -> None:
-        if not isinstance(efectivo_inicial, (int, float)) or isinstance(efectivo_inicial, bool):
-            raise TypeError("efectivo_inicial debe ser un numero")
-        if not isfinite(efectivo_inicial) or efectivo_inicial < 0:
-            raise ValueError(
-                f"efectivo_inicial debe ser un numero finito >= 0 (recibido {efectivo_inicial})"
-            )
-        if not isfinite(comision_por_operacion) or comision_por_operacion < 0:
-            raise ValueError("comision_por_operacion no puede ser negativa")
+        if not isinstance(propietario, str) or not propietario.strip():
+            raise ValueError("propietario no puede estar vacio")
+        self.propietario: str = propietario.strip()
+        self.efectivo = efectivo
+        self.comision = comision
+        # Internos: se exponen de forma inmutable.
+        self._inversiones: dict[str, int] = {}
+        self._historial: list[Operacion] = []
 
-        self._efectivo: float = float(efectivo_inicial)
-        self._comision: float = float(comision_por_operacion)
-        self._nombre: str = nombre.strip() or "Cartera"
-        # ``dict``: la coleccion de posiciones crece/decrece; no nos
-        # interesa una tupla.
-        self._posiciones: dict[str, Posicion] = {}
-        # ``list``: historial append-only de operaciones.
-        self._transacciones: list[Transaccion] = []
-
-    # -- lectura -------------------------------------------------------------
-    @property
-    def nombre(self) -> str:
-        return self._nombre
-
+    # ---- properties ------------------------------------------------------
     @property
     def efectivo(self) -> float:
         return self._efectivo
 
+    @efectivo.setter
+    def efectivo(self, valor: float) -> None:
+        if not isinstance(valor, (int, float)) or isinstance(valor, bool):
+            raise TypeError("efectivo debe ser un numero finito")
+        v = float(valor)
+        if not isfinite(v) or v < 0:
+            raise ValueError(f"efectivo debe ser un numero finito >= 0 (recibido {v})")
+        self._efectivo = v
+
     @property
-    def comision_por_operacion(self) -> float:
+    def comision(self) -> float:
         return self._comision
 
-    @property
-    def posiciones(self) -> tuple[Posicion, ...]:
-        """Vista inmutable de las posiciones."""
-        return tuple(self._posiciones.values())
+    @comision.setter
+    def comision(self, valor: float) -> None:
+        if not isinstance(valor, (int, float)) or isinstance(valor, bool):
+            raise TypeError("comision debe ser un numero finito")
+        v = float(valor)
+        if not isfinite(v) or v < 0:
+            raise ValueError(f"comision debe ser un numero finito >= 0 (recibido {v})")
+        self._comision = v
 
     @property
-    def transacciones(self) -> tuple[Transaccion, ...]:
-        """Copia inmutable del historial (crece, pero el exterior no puede mutarlo)."""
-        return tuple(self._transacciones)
+    def posiciones(self) -> tuple[tuple[str, int], ...]:
+        """Vista inmutable de las posiciones (instrumento_id, cantidad)."""
+        return tuple(self._inversiones.items())
 
     @property
-    def total_transacciones(self) -> int:
-        return len(self._transacciones)
+    def historial(self) -> tuple[Operacion, ...]:
+        return tuple(self._historial)
 
-    def inversion(self) -> float:
-        """Capital inicial invertido en posiciones (sin efectivo libre)."""
-        return sum(p.valor() for p in self._posiciones.values())
+    @property
+    def total_operaciones(self) -> int:
+        return len(self._historial)
 
-    def valor_total(self, mercado: MercadoSimulado) -> float:
-        """Valor liquidativo: efectivo + posiciones valoradas a mercado."""
-        return self._efectivo + sum(
-            p.valor(mercado.precio_de(p.ticker)) for p in self._posiciones.values()
-        )
-
-    # -- operaciones ---------------------------------------------------------
-    def comprar(
+    # ---- API del dominio -------------------------------------------------
+    def invertir(
         self,
-        mercado: MercadoSimulado,
-        ticker: str,
+        mercado: Mercado,
+        instrumento_id: str,
         cantidad: int,
-        *,
-        comision: float | None = None,
-    ) -> bool:
-        """Compra ``cantidad`` participaciones. Devuelve ``True`` si se ejecuta."""
-        if isinstance(cantidad, bool) or not isinstance(cantidad, int):
-            raise TypeError("cantidad debe ser un entero")
-        if cantidad <= 0:
-            raise ValueError("cantidad debe ser positiva")
-        activo = mercado.obtener(ticker)  # KeyError si no existe
-        precio = activo.precio
-        coste = cantidad * precio
-        comision = self._comision if comision is None else float(comision)
-        coste_total = coste + comision
-        if coste_total > self._efectivo:
-            return False
+        precio: float,
+        fecha: str,
+    ) -> Operacion | None:
+        """Compra ``cantidad`` unidades. ``None`` si no llega el efectivo."""
+        if isinstance(cantidad, bool) or not isinstance(cantidad, int) or cantidad <= 0:
+            raise ValueError("cantidad debe ser un entero > 0")
+        if not isinstance(precio, (int, float)) or isinstance(precio, bool):
+            raise TypeError("precio debe ser un numero")
+        coste = float(cantidad) * float(precio) + self._comision
+        if coste > self._efectivo:
+            return None
+        op = Operacion(
+            fecha=fecha,
+            instrumento_id=instrumento_id,
+            cantidad=cantidad,
+            precio_ejecucion=float(precio),
+            tipo="compra",
+        )
+        self._inversiones[instrumento_id] = self._inversiones.get(instrumento_id, 0) + cantidad
+        self._efectivo -= coste
+        self._historial.append(op)
+        return op
 
-        posicion = self._posiciones.get(ticker)
-        if posicion is None:
-            self._posiciones[ticker] = Posicion(activo, cantidad)
+    def desinvertir(
+        self,
+        mercado: Mercado,
+        instrumento_id: str,
+        cantidad: int,
+        precio: float,
+        fecha: str,
+    ) -> Operacion | None:
+        """Vende ``cantidad`` unidades. ``None`` si no hay saldo suficiente."""
+        if isinstance(cantidad, bool) or not isinstance(cantidad, int) or cantidad <= 0:
+            raise ValueError("cantidad debe ser un entero > 0")
+        if not isinstance(precio, (int, float)) or isinstance(precio, bool):
+            raise TypeError("precio debe ser un numero")
+        tenencia = self._inversiones.get(instrumento_id, 0)
+        if cantidad > tenencia:
+            return None
+        ingreso = float(cantidad) * float(precio) - self._comision
+        op = Operacion(
+            fecha=fecha,
+            instrumento_id=instrumento_id,
+            cantidad=cantidad,
+            precio_ejecucion=float(precio),
+            tipo="venta",
+        )
+        nuevo = tenencia - cantidad
+        if nuevo == 0:
+            del self._inversiones[instrumento_id]
         else:
-            posicion.cantidad = posicion.cantidad + cantidad
-        self._efectivo -= coste_total
+            self._inversiones[instrumento_id] = nuevo
+        self._efectivo += ingreso
+        self._historial.append(op)
+        return op
 
-        self._transacciones.append(
-            Transaccion(
-                sesion=mercado.sesion_actual,
-                tipo=TipoOperacion.COMPRA,
-                ticker=ticker,
-                cantidad=cantidad,
-                precio_unitario=precio,
-                comision=comision,
-            )
+    def valor_total(self, mercado: Mercado) -> float:
+        """Efectivo + valor liquidativo de las posiciones a precio actual."""
+        total = self._efectivo
+        for tid, cantidad in self._inversiones.items():
+            precio = mercado.precio_de(tid)
+            total += cantidad * float(precio)
+        return total
+
+    # ---- print ------------------------------------------------------------
+    def mostrar(self) -> None:
+        """Imprime el estado actual de la cartera."""
+        print(
+            f"[Cartera] {self.propietario!r}: "
+            f"efectivo={self._efectivo:.2f} EUR  "
+            f"comision={self._comision:.2f}  "
+            f"posiciones={len(self._inversiones)}  "
+            f"ops={len(self._historial)}"
         )
-        return True
+        for tid, qty in self._inversiones.items():
+            print(f"   - {tid}: {qty}")
+        for op in self._historial:
+            print(f"   . {op!r}")
 
-    def vender(
-        self,
-        mercado: MercadoSimulado,
-        ticker: str,
-        cantidad: int,
-        *,
-        comision: float | None = None,
-    ) -> bool:
-        """Vende ``cantidad`` participaciones si existen. Devuelve ``True`` si se ejecuta."""
-        if isinstance(cantidad, bool) or not isinstance(cantidad, int):
-            raise TypeError("cantidad debe ser un entero")
-        if cantidad <= 0:
-            raise ValueError("cantidad debe ser positiva")
-        posicion = self._posiciones.get(ticker)
-        if posicion is None or posicion.cantidad < cantidad:
-            return False
-        activo = mercado.obtener(ticker)
-        precio = activo.precio
-        ingreso = cantidad * precio
-        comision = self._comision if comision is None else float(comision)
-        ingreso_neto = ingreso - comision
-
-        posicion.cantidad -= cantidad
-        if posicion.cantidad == 0:
-            del self._posiciones[ticker]
-        self._efectivo += ingreso_neto
-
-        self._transacciones.append(
-            Transaccion(
-                sesion=mercado.sesion_actual,
-                tipo=TipoOperacion.VENTA,
-                ticker=ticker,
-                cantidad=cantidad,
-                precio_unitario=precio,
-                comision=comision,
-            )
-        )
-        return True
-
-    # -- utilidades ----------------------------------------------------------
     def __repr__(self) -> str:
         return (
-            f"Cartera(nombre={self._nombre!r}, efectivo={self._efectivo:.2f}, "
-            f"posiciones={len(self._posiciones)}, txns={len(self._transacciones)})"
+            f"Cartera(propietario={self.propietario!r}, "
+            f"efectivo={self._efectivo:.2f}, comision={self._comision:.2f}, "
+            f"posiciones={len(self._inversiones)}, ops={len(self._historial)})"
         )
-
-
-# Import retardado para evitar ciclos de tipo
-from math import isfinite  # noqa: E402  (se ubica al final por legibilidad)

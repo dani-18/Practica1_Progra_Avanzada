@@ -1,135 +1,155 @@
-"""Evolucion simulada del mercado de activos.
+"""``Mercado``: motor de cotizaciones para un conjunto de instrumentos.
 
-El mercado es responsable del **como**: toma los ``Activo`` registrados
-y aplica perturbaciones aleatorias (un paseo aleatorio con la
-volatilidad de cada activo) para producir nuevas cotizaciones. Es
-*determinista* cuando se le inyecta un ``random.Random`` con semilla.
+Atributos (5):
 
-Notas de diseno:
+* ``nombre`` (str, no vacio).
+* ``_rng_seed`` (int o ``None``): semilla para la simulacion.
+* ``instrumentos`` (dict ``{id: InstrumentoBase}``).
+* ``sesion`` (int ``>= 0``): contador de sesiones transcurridas.
+* ``volumen_total`` (int ``>= 0``): unidades totales movidas.
 
-* La historia de cotizaciones se devuelve como ``tuple[BarraDiaria, ...]``
-  para reforzar el criterio "tupla si la coleccion no debe mutar"; el
-  historial es append-only desde la perspectiva del cliente.
-* ``precio_de(ticker)`` funciona con un diccionario interno; se usa el
-  ticker (hashable e inmutable) como clave, no el ``Activo``.
+La clase avanza sesiones con ``avanzar_sesion()``: cada instrumento
+recibe un factor de variacion aleatorio proporcional a su
+``volatilidad``, y ``sesion`` y ``volumen_total`` se incrementan con
+setter validado. Los atributos inmutables fuera de la evolucion son
+``nombre``, ``_rng_seed`` e ``instrumentos``.
 """
 
 from __future__ import annotations
 
-import math
 import random
-from collections.abc import Iterable
-from typing import Final
+from typing import TYPE_CHECKING
 
-from .activos import Activo, BarraDiaria
+from .instrumento import InstrumentoBase
 
-# Numero magico para las comisiones, expuesto por si alguien lo quiere
-# inyectar en otro modulo (p.ej., tests).
-COMISION_POR_OPERACION: Final[float] = 1.0
+if TYPE_CHECKING:
+    from .cartera import Cartera
 
 
-class MercadoSimulado:
-    """Motor de cotizaciones para un conjunto cerrado de activos."""
+class Mercado:
+    """Motor que mantiene cotizaciones y avanza sesiones."""
 
     def __init__(
         self,
-        activos: Iterable[Activo],
+        nombre: str,
+        instrumentos: dict[str, InstrumentoBase],
         *,
         semilla: int | None = None,
-        tendencia_drift: float = 0.0,
     ) -> None:
-        self._activos: dict[str, Activo] = {}
-        for act in activos:
-            if not isinstance(act, Activo):
-                raise TypeError("el mercado solo admite instancias de Activo")
-            if act.ticker in self._activos:
-                raise ValueError(f"ticker duplicado en el mercado: {act.ticker!r}")
-            self._activos[act.ticker] = act
+        if not isinstance(nombre, str) or not nombre.strip():
+            raise ValueError("nombre no puede estar vacio")
+        if not isinstance(instrumentos, dict):
+            raise TypeError("instrumentos debe ser dict")
+        for tid, inst in instrumentos.items():
+            if not isinstance(inst, InstrumentoBase):
+                raise TypeError(f"instrumento {tid!r} no es InstrumentoBase")
+        if semilla is not None and (isinstance(semilla, bool) or not isinstance(semilla, int)):
+            raise TypeError("semilla debe ser int o None")
 
+        self.nombre: str = nombre.strip()
+        self.instrumentos: dict[str, InstrumentoBase] = dict(instrumentos)
+        self._rng_seed: int | None = semilla
         self._rng = random.Random(semilla)
-        self._sesion_actual: int = 0
-        self._drift = float(tendencia_drift)
-        # ``list`` por dentro (mutacion local controlada), expuesto como tuple.
-        self._historial: dict[str, list[BarraDiaria]] = {t: [] for t in self._activos}
-
-    # -- acceso --------------------------------------------------------------
-    @property
-    def tickers(self) -> tuple[str, ...]:
-        return tuple(self._activos.keys())
+        self.sesion = 0
+        self.volumen_total = 0
 
     @property
-    def sesion_actual(self) -> int:
-        return self._sesion_actual
+    def semilla(self) -> int | None:
+        return self._rng_seed
 
     @property
-    def tamanio(self) -> int:
-        return len(self._activos)
+    def ids(self) -> tuple[str, ...]:
+        return tuple(self.instrumentos.keys())
 
-    def __len__(self) -> int:
-        return len(self._activos)
+    # ---- properties ------------------------------------------------------
+    @property
+    def sesion(self) -> int:
+        return self._sesion
 
-    def __contains__(self, ticker: object) -> bool:
-        return isinstance(ticker, str) and ticker in self._activos
+    @sesion.setter
+    def sesion(self, valor: int) -> None:
+        if isinstance(valor, bool) or not isinstance(valor, int) or valor < 0:
+            raise ValueError("sesion debe ser un entero >= 0")
+        self._sesion = valor
 
-    def activos(self) -> tuple[Activo, ...]:
-        """Devuelve una tupla inmutable con los activos registrados."""
-        return tuple(self._activos.values())
+    @property
+    def volumen_total(self) -> int:
+        return self._volumen_total
 
-    def obtener(self, ticker: str) -> Activo:
-        if ticker not in self._activos:
-            raise KeyError(f"ticker desconocido: {ticker!r}")
-        return self._activos[ticker]
+    @volumen_total.setter
+    def volumen_total(self, valor: int) -> None:
+        if isinstance(valor, bool) or not isinstance(valor, int) or valor < 0:
+            raise ValueError("volumen_total debe ser un entero >= 0")
+        self._volumen_total = valor
 
-    def precio_de(self, ticker: str) -> float:
-        return self.obtener(ticker).precio
+    # ---- API -------------------------------------------------------------
+    def precio_de(self, instrumento_id: str) -> float:
+        if instrumento_id not in self.instrumentos:
+            raise KeyError(f"instrumento {instrumento_id!r} no esta en el mercado")
+        return float(self.instrumentos[instrumento_id].precio_base)
 
-    # -- evolucion -----------------------------------------------------------
-    def avanzar_sesion(self) -> dict[str, float]:
-        """Avanza un dia y devuelve ``{ticker: nuevo_precio}``.
+    def registrar(self, instrumento: InstrumentoBase) -> None:
+        if instrumento.id in self.instrumentos:
+            raise ValueError(f"instrumento {instrumento.id!r} ya figura en el mercado")
+        self.instrumentos[instrumento.id] = instrumento
 
-        Para cada activo se aplica un movimiento browniano geometrico
-        simplificado: ``factor = exp(drift + sigma * N(0,1))`` y se
-        descuenta un tiny sesgo para realismo de retornos largos. La
-        cota inferior ``> 0`` es un invariante de ``Activo``.
+    def avanzar_sesion(self, volumen: int = 100) -> dict[str, float]:
+        """Avanza 1 sesion aplicando un shock gaussiano a cada precio.
+
+        ``volumen`` es el numero de unidades movidas en el mercado
+        durante la sesion (suma a ``volumen_total``). Devuelve los
+        nuevos precios.
         """
-        resultado: dict[str, float] = {}
-        self._sesion_actual += 1
-        for ticker, activo in self._activos.items():
-            cierre_anterior = activo.precio
-            sigma = activo.volatilidad
-            # 1 / 252 ~ un dia de trading sobre un ano. Mantener este
-            # factor evita desvios explosivos en simulaciones largas.
-            dt = 1.0 / 252.0
+        if isinstance(volumen, bool) or not isinstance(volumen, int) or volumen <= 0:
+            raise ValueError("volumen debe ser un entero > 0")
+
+        nuevos: dict[str, float] = {}
+        for inst in self.instrumentos.values():
+            sigma = float(inst.volatilidad)
+            # Volatilidad pequena: sqrt(dt) como factor de escala diario.
             shock = self._rng.gauss(0.0, 1.0)
-            # sqrt(252) invierte la anualizacion para un horizon diario.
-            factor = math.exp(self._drift * dt + sigma * math.sqrt(dt) * shock)
-            nuevo = activo.aplicar_factor(factor)
-            barra = BarraDiaria(
-                sesion=self._sesion_actual,
-                apertura=cierre_anterior,
-                cierre=nuevo,
-                maximo=max(cierre_anterior, nuevo),
-                minimo=min(cierre_anterior, nuevo),
-                volumen=0,  # se omite la dinamica de volumen en PRAC1.
+            factor = 1.0 + 0.02 * sigma * shock
+            if factor <= 0:
+                factor = 0.5  # limite inferior de seguridad
+            inst.aplicar_factor(factor)
+            nuevos[inst.id] = float(inst.precio_base)
+        self.sesion = self._sesion + 1
+        self.volumen_total = self._volumen_total + volumen
+        return nuevos
+
+    def liquidar(self, cartera: Cartera) -> float:
+        """Vende todas las posiciones de ``cartera`` a precio actual y devuelve el ingreso."""
+        ingreso_bruto = 0.0
+        for tid, qty in list(cartera.posiciones):
+            precio = self.precio_de(tid)
+            op = cartera.desinvertir(
+                self,
+                tid,
+                qty,
+                precio,
+                fecha=f"s{self._sesion:04d}",
             )
-            self._historial[ticker].append(barra)
-            resultado[ticker] = nuevo
-        return resultado
+            if op is not None:
+                ingreso_bruto += op.importe_bruto
+        return ingreso_bruto
 
-    def simular(self, sesiones: int) -> list[dict[str, float]]:
-        """Avanza ``sesiones`` dias y devuelve el historial diario."""
-        if isinstance(sesiones, bool) or not isinstance(sesiones, int):
-            raise TypeError("sesiones debe ser un entero")
-        if sesiones < 0:
-            raise ValueError("sesiones no puede ser negativo")
-        resultado: list[dict[str, float]] = []
-        for _ in range(sesiones):
-            resultado.append(self.avanzar_sesion())
-        return resultado
+    # ---- print -----------------------------------------------------------
+    def mostrar(self) -> None:
+        print(
+            f"[Mercado] {self.nombre!r}  sesion={self._sesion}  "
+            f"volumen_total={self._volumen_total}  semilla={self._rng_seed}  "
+            f"instrumentos={len(self.instrumentos)}"
+        )
+        for inst in self.instrumentos.values():
+            print(
+                f"   - {inst.id:<8} {inst.simbolo:<6} "
+                f"{inst.nombre:<28} precio_base={inst.precio_base:.2f}  "
+                f"vol={inst.volatilidad:.2f}"
+            )
 
-    def historial_de(self, ticker: str) -> tuple[BarraDiaria, ...]:
-        """Serie historica del ticker como tupla inmutable."""
-        barras = self._historial.get(ticker)
-        if barras is None:
-            raise KeyError(f"ticker desconocido: {ticker!r}")
-        return tuple(barras)
+    def __repr__(self) -> str:
+        return (
+            f"Mercado(nombre={self.nombre!r}, instrumentos={len(self.instrumentos)}, "
+            f"sesion={self._sesion}, volumen_total={self._volumen_total}, "
+            f"semilla={self._rng_seed})"
+        )

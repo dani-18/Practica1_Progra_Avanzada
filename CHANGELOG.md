@@ -1,45 +1,31 @@
 # Changelog
 
 Todos los cambios relevantes del proyecto, en orden cronologico
-inverso. El formato sigue "Keep a Changelog" (https://keepachangelog.com)
-y este proyecto aun no sigue SemVer estricto: el versionado en la
-PRAC1 es 0.1.0 (dearrollo) y pasara a 1.0.0 en la PRAC4 cuando se
-etiquete la entrega final.
+inverso. Sigue "Keep a Changelog".
 
-## [Unreleased]
+## [0.2.0] - 2026-09-25 - PRAC1 (reduccion minima)
 
-### Planificado para PRAC2-PRAC4
-* Jerarquia de activos (Accion/Bono/Etf) con herencia y excepciones
-  de dominio.
-* Strategy como ``ABC`` y contenedor generico en el Simulador.
-* Patrones: Factory para construir perfiles, Observer para GUI.
-* GUI (Tkinter o Textual), concurrencia para correr varios escenarios.
-
-## [0.1.0] - 2026-09-25 - PRAC1
+### Cambios
+- **Reduccion del modelo a 4 clases** segun requisito del alumno:
+  - ``InstrumentoBase``: clase padre preparada para herencia futura (PRAC2).
+  - ``Cartera``: composicion por asociacion con ``Operacion`` y un ``Mercado``.
+  - ``Operacion``: registro inmutable (`frozen dataclass`).
+  - ``Mercado``: motor de cotizaciones con sesion y volumen_total.
+- Cada clase tiene 3-5 atributos propios y un metodo ``mostrar()`` que imprime por pantalla.
+- Tres de las cuatro clases exponen ``@property`` + ``@setter`` con validacion (cumple "al menos dos").
+- Eliminado (movido a ``legacy/``) el modelo extendido anterior para no contaminar la entrega minima:
+  ``activos.py``, ``mercado.py``, ``cartera.py`` (legacy), ``estrategias.py``, ``simulacion.py``,
+  ``metricas.py``, ``memoria.py``, ``config.py``, ``__main__.py`` (legacy).
 
 ### Anadido
-* Esqueleto del proyecto Python con `src/bolsa_sim/` y `pyproject.toml`.
-* Paquete solo de biblioteca estandar (sin dependencias en runtime).
-* Modelo de dominio basico: ``Activo``, ``BarraDiaria`` (NamedTuple),
-  ``Posicion``, ``Transaccion`` (frozen dataclass), ``TipoActivo``,
-  ``TipoOperacion``.
-* ``Cartera`` con efectivo, posiciones, historial inmutable y
-  validacion de operaciones (fondos insuficientes, cantidad invalida).
-* ``MercadoSimulado`` con paseo aleatorio (browniano geometrico) y
-  semilla inyectable para simulaciones reproducibles.
-* Estrategias ``CompraYMantiene`` y ``AportePeriodico`` (DCA
-  simplificado) y ``Simulador`` que las orquesta con ``Protocol``.
-* Modulo ``memoria`` con la demostracion de identidad vs igualdad,
-  aliasing, *rebinding*, *hashable* vs no, **defecto del argumento
-  por defecto mutable** (identificado + explicado + corregido).
-* ``__main__.py`` con CLI ``--demo``, ``--memoria``, ``--sesiones``,
-  ``--semilla`` y ``--version``.
-* Configuracion mediante variables de entorno (``config.py`` +
-  ``.env.example``), sin dependencia ``python-dotenv``.
-* 77 tests (4 niveles: humo, modelo, memoria, integracion) con
-  cobertura inicial de 87 % (objetivo >= 70 % cumplido).
-* Documentacion: README, propuesta (Markdown + PDF generado con
-  reportlab), decisiones de diseno, defecto mutable explicado y
-  documentacion de la API generada con pdoc.
-* Hooks ``pre-commit`` (Black + Ruff) y workflow de CI en
-  GitHub Actions (black --check, ruff check, pytest).
+- ``tests/test_integration.py::test_herencia_preparada``: comprueba que ``InstrumentoBase``
+  admite una subclase trivial que hereda las properties y su validacion.
+- CLI minimo: ``python -m bolsa_sim --demo`` y ``--version``.
+- 37 tests verdes, cobertura ~93 % (objetivo PRAC4: >= 70 %).
+
+## [0.1.0] - 2026-09-25 - PRAC1 (modelo extendido)
+
+### Anadido (resumen)
+- Esqueleto del proyecto (`src/bolsa_sim/` con 11 modulos).
+- 77 tests con cobertura ~87 %; paquete stdlib-only; CI en GitHub Actions.
+- Documentos: propuesta en md+pdf, defecto mutable, decisiones de diseno, README, CHANGELOG.

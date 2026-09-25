@@ -3,12 +3,12 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 # -----------------------------------------------------------------------------
-# Proyecto (PRAC1 - esqueleto del Simulador de Bolsa y Carteras).
+# Proyecto (PRAC1 - modelo minimo de 4 clases).
 # -----------------------------------------------------------------------------
 [project]
 name = "bolsa-sim"
-version = "0.1.0"
-description = "Simulador de Bolsa y Carteras de Inversion con activos ficticios (Practica 1, TPA)."
+version = "0.2.0"
+description = "Simulador de Bolsa y Carteras (PRAC1, modelo minimo de 4 clases)."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"

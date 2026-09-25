@@ -1,10 +1,11 @@
-"""Pytest configuration: ensures ``src/`` is on sys.path."""
+"""Pytest configuration and shared fixtures for the bolsa-sim test-suite."""
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
+# Ensure the ``src`` layout is importable without requiring ``pip install -e .``.
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
