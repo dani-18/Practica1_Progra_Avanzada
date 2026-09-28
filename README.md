@@ -122,8 +122,6 @@ Practica_Progra_Avanzada/
 |-- pyproject.toml               configuracion Black/Ruff/pytest/coverage
 |-- legacy/                      version extendida anterior (informativa)
 |   |-- docs/    src/    tests/
-|-- tools/
-|   `-- generar_propuesta_pdf.py
 |-- docs/
 |   `-- propuesta_PRAC1.md       fuente Markdown de la propuesta
 |-- src/bolsa_sim/
