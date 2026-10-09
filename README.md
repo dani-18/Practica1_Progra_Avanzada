@@ -4,7 +4,8 @@
 > PRAC1 entrega 4 clases de dominio con ``@property``/setter y ``mostrar()``.
 > PRAC2 anade la **jerarquia de instrumentos** ``Accion``, ``Bono`` y
 > ``ETF`` heredando de ``InstrumentoBase`` (herencia, sobrescritura y
-> polimorfismo).
+> polimorfismo). Ademas incluye una **interfaz interactiva de CLI**
+> (``--cli``) para operar el mercado desde la terminal.
 
 ## Indice
 
@@ -113,20 +114,58 @@ Sin extras: `python -m pip install -e .`
 ## 4. Ejecucion
 
 ```bash
-python -m bolsa_sim --demo      # flujo completo: Accion + Bono + ETF + mercado + cartera
-python -m bolsa_sim --version   # imprime 'bolsa-sim 0.3.0'
+python -m bolsa_sim --demo        # flujo completo: Accion + Bono + ETF + mercado + cartera
+python -m bolsa_sim --cli         # interfaz interactiva de linea de comandos
+python -m bolsa_sim --version     # imprime 'bolsa-sim 0.4.0'
 ```
 
 Tambien desde el entry point:
 
 ```bash
 bolsa-sim --demo
+bolsa-sim --cli
 ```
+
+### Interfaz interactiva (`--cli`)
+
+Abre una consola para operar el escenario de ejemplo (una `Accion`, un
+`Bono` y un `ETF` con 1.000 EUR de efectivo). El procesamiento de cada
+linea esta separado de la lectura por teclado, asi que es testeable.
+
+```text
+Simulador de Bolsa (CLI). Escribe 'help' para ver los comandos.
+bolsa> list
+Mercado 'Bolsa Continuo' (sesion 0):
+  ACME     accion   Acme Corp            precio=    120.00 EUR  vol=0.20
+  BONO10   bono     Bono 10 anos         precio=    100.00 EUR  vol=0.05
+  SP500    etf      ETF S&P 500          precio=    400.00 EUR  vol=0.15
+bolsa> buy acme 2
+Compra ejecutada: Operacion(fecha='s0000', tipo='compra', ...)
+bolsa> next 50
+Sesion 1: ACME=119.93  BONO10=99.98  SP500=399.87
+bolsa> portfolio
+...
+```
+
+| Comando                                   | Accion                                  |
+|-------------------------------------------|-----------------------------------------|
+| `help` (`?`)                              | Muestra la ayuda.                       |
+| `list` (`ls`)                             | Lista los instrumentos y sus precios.   |
+| `market`                                  | Estado del mercado.                     |
+| `portfolio` (`status`)                    | Cartera y valor liquidativo.            |
+| `price <instrumento>`                     | Precio actual.                          |
+| `buy <instrumento> <cantidad> [precio]`   | Compra.                                 |
+| `sell <instrumento> <cantidad> [precio]`  | Vende.                                  |
+| `next [volumen]`                          | Avanza una sesion (shock de mercado).   |
+| `history`                                 | Historial de operaciones.               |
+| `quit` (`exit`)                           | Sale de la consola.                     |
+
+Si se omite `[precio]`, se usa el precio actual del mercado.
 
 ## 5. Pruebas y calidad
 
 ```bash
-python -m pytest -q                        # 66 tests en ~0.2 s
+python -m pytest -q                        # 88 tests en ~0.2 s
 python -m pytest --cov=bolsa_sim           # cobertura ~95 %
 python -m black --check src tests
 python -m ruff check src tests
@@ -136,7 +175,7 @@ Resultado actual:
 
 ```
 TOTAL ... 95 % coverage
-66 passed in 0.15s
+88 passed in 0.20s
 ```
 
 ## 6. Estructura del repositorio
@@ -151,13 +190,11 @@ Practica_Progra_Avanzada/
 |-- LICENSE                      MIT
 |-- README.md
 |-- pyproject.toml               configuracion Black/Ruff/pytest/coverage
-|-- legacy/                      version extendida anterior (informativa)
-|   |-- docs/    src/    tests/
-|-- docs/
-|   `-- propuesta_PRAC1.md       fuente Markdown de la propuesta
 |-- src/bolsa_sim/
-|   |-- __init__.py              7 clases exportadas (4 base + 3 jerarquia)
-|   |-- __main__.py              CLI minimo (demo polimorfica)
+|   |-- __init__.py              paquete: clases base + jerarquia + Shell
+|   |-- __main__.py              entry point (--demo / --cli / --version)
+|   |-- cli.py                   Shell interactiva
+|   |-- demo.py                  escenario de ejemplo reutilizable
 |   |-- instrumento.py           InstrumentoBase  (padre: 5 attrs + 2 properties)
 |   |-- accion.py                Accion           (PRAC2: sector + dividendo)
 |   |-- bono.py                  Bono             (PRAC2: cupon + nominal + vencimiento)
@@ -175,6 +212,7 @@ Practica_Progra_Avanzada/
     |-- test_operacion.py
     |-- test_mercado.py
     |-- test_integration.py      hello flow + herencia + jerarquia polimorfica
+    |-- test_cli.py              comandos de la consola + run/quit/EOF
     `-- test_main.py             CLI smoke
 ```
 
@@ -184,15 +222,16 @@ Practica_Progra_Avanzada/
 |--------|------|------------------------------------------------------------------------|
 | **PRAC1** | **1** | **Entrega 1.** 4 clases, encapsulamiento, frozen dataclass, herencia preparada. |
 | **PRAC2** | **2** | **Esta entrega.** Jerarquia ``Accion/Bono/ETF(InstrumentoBase)``, herencia, sobrescritura y polimorfismo. |
+| Extra  |  —   | Interfaz CLI interactiva (``--cli``): operar mercado, cartera e historial. |
 | PRAC3  | 3    | Strategy + Factory para perfiles de cartera; excepciones de dominio.       |
 | PRAC4  | 4    | GUI, concurrencia, ≥ 70 % cobertura, tag ``v1.0.0``.                    |
 
 ## 8. Documentacion adicional
 
-* `docs/propuesta_PRAC1.md` — propuesta en Markdown. Genera PDF academico
-  con `python tools/generar_propuesta_pdf.py`.
-* `legacy/` — primer esquema del proyecto (antes de reducir a 4 clases).
-  Se conserva como bitacora historica.
+* `README.md` (este documento) y `CHANGELOG.md` — guia de uso e historico
+  de cambios.
+* La ayuda embebida de la consola: `python -m bolsa_sim --cli` y luego
+  `help`.
 
 ## 9. Seguridad y licencia
 

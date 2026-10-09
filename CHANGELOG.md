@@ -3,6 +3,27 @@
 Todos los cambios relevantes del proyecto, en orden cronologico
 inverso. Sigue "Keep a Changelog".
 
+## [0.4.0] - 2026-10-09 - Interfaz CLI interactiva
+
+### Anadido
+- ``bolsa_sim.cli.Shell``: consola interactiva lanzable con
+  ``python -m bolsa_sim --cli`` (alias ``--interactive``). Comandos:
+  ``help``, ``list``, ``market``, ``portfolio``, ``price``, ``buy``,
+  ``sell``, ``next``, ``history`` y ``quit``/``exit``.
+- ``bolsa_sim.demo``: centraliza el escenario de ejemplo
+  (``instrumentos_demo``/``mercado_demo``/``cartera_demo``) que ahora
+  comparten la demo y la CLI.
+- ``Shell.ejecutar()`` separa el procesado de cada linea de la lectura
+  por teclado, lo que permite testear la interfaz sin entrada real.
+- Tests: ``tests/test_cli.py`` (comandos, errores de uso, ``run``/``quit``
+  y fin por EOF). **66 -> 88 tests**.
+
+### Cambiado
+- ``__main__.py``: nuevo flag ``--cli``/``--interactive``; la demo
+  reutiliza ``bolsa_sim.demo``.
+- Exportada ``Shell`` en el paquete (``__all__``).
+- Version del paquete ``0.3.0`` -> ``0.4.0``.
+
 ## [0.3.0] - 2026-10-09 - PRAC2 (jerarquia de instrumentos)
 
 ### Anadido

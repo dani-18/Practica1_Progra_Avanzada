@@ -10,6 +10,7 @@ from __future__ import annotations
 from .accion import Accion
 from .bono import Bono
 from .cartera import Cartera
+from .cli import Shell
 from .etf import ETF
 from .instrumento import InstrumentoBase
 from .mercado import Mercado
@@ -23,6 +24,7 @@ __all__ = [
     "InstrumentoBase",
     "Mercado",
     "Operacion",
+    "Shell",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
