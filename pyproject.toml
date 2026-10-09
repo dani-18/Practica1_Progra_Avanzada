@@ -7,8 +7,8 @@ build-backend = "setuptools.build_meta"
 # -----------------------------------------------------------------------------
 [project]
 name = "bolsa-sim"
-version = "0.2.0"
-description = "Simulador de Bolsa y Carteras (PRAC1, modelo minimo de 4 clases)."
+version = "0.3.0"
+description = "Simulador de Bolsa y Carteras (PRAC1-PRAC2: 4 clases base + Accion/Bono/ETF)."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"

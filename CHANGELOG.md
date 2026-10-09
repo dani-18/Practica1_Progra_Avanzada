@@ -3,10 +3,37 @@
 Todos los cambios relevantes del proyecto, en orden cronologico
 inverso. Sigue "Keep a Changelog".
 
+## [0.3.0] - 2026-10-09 - PRAC2 (jerarquia de instrumentos)
+
+### Anadido
+- **Jerarquia de instrumentos** (herencia de ``InstrumentoBase``):
+  - ``Accion``: campos ``sector`` y ``dividendo_anual``; helper
+    ``rentabilidad_por_dividendo()``.
+  - ``Bono``: campos ``cupon_anual``, ``valor_nominal`` y
+    ``vencimiento``; helpers ``cupon_anual_eur()`` y
+    ``rendimiento_actual()``.
+  - ``ETF``: campos ``indice`` y ``comision_gestion``; helper
+    ``coste_anual()``.
+- Cada subclase usa ``super().__init__()``, valida sus campos con
+  ``@property``/``@setter`` y fija su atributo de clase ``tipo``.
+- **Polimorfismo**: ``InstrumentoBase`` define ``flujo_anual()`` (0.0) y
+  ``mostrar()``; las subclases los sobrescriben/amplian. La demo y los
+  tests suman ``flujo_anual()`` sin conocer el tipo concreto.
+- Exportadas las 3 subclases en ``bolsa_sim`` (7 clases en total).
+- Tests: ``test_accion.py``, ``test_bono.py``, ``test_etf.py`` y un test
+  de integracion de la jerarquia polimorfica. **37 -> 66 tests** (95 %
+  de cobertura).
+
+### Cambiado
+- ``InstrumentoBase.mostrar()`` usa ``type(self).__name__`` para que las
+  subclases hereden el formato.
+- Version del paquete ``0.2.0`` -> ``0.3.0`` (``pyproject.toml`` y
+  ``__init__``).
+
 ## [0.2.0] - 2026-09-25 - PRAC1 (reduccion minima)
 
 ### Cambios
-- **Reduccion del modelo a 4 clases** segun requisito del alumno:
+- **Modelo en 4 clases** :
   - ``InstrumentoBase``: clase padre preparada para herencia futura (PRAC2).
   - ``Cartera``: composicion por asociacion con ``Operacion`` y un ``Mercado``.
   - ``Operacion``: registro inmutable (`frozen dataclass`).

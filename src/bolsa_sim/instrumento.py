@@ -24,6 +24,15 @@ Queda lista para especializarse en PRAC2::
 
 La igualdad y el hash son por ``id`` (dos instrumentos con el mismo
 identificador logico son el mismo instrumento).
+
+En PRAC2 se anaden las subclases :class:`~bolsa_sim.accion.Accion`,
+:class:`~bolsa_sim.bono.Bono` y :class:`~bolsa_sim.etf.ETF`. La base fija
+el contrato polimorfico:
+
+* ``tipo``: etiqueta de la familia (clase hija la sobrescribe).
+* ``flujo_anual()``: flujo de caja anual por unidad (0.0 en la base).
+* ``mostrar()``: usa ``type(self).__name__`` para que cada subclase
+  imprima su propio encabezado sin reescribir el formato.
 """
 
 from __future__ import annotations
@@ -33,6 +42,9 @@ from math import isfinite
 
 class InstrumentoBase:
     """Plantilla base de un instrumento financiero del simulador."""
+
+    #: Etiqueta de la familia de instrumento (las subclases la redefinen).
+    tipo: str = "instrumento"
 
     def __init__(
         self,
@@ -96,12 +108,25 @@ class InstrumentoBase:
         self.precio_base = nuevo  # reusa la validacion del setter
         return self._precio_base
 
+    def flujo_anual(self) -> float:
+        """Flujo de caja anual por unidad del instrumento.
+
+        La base no genera rentas periodicas (``0.0``); ``Accion`` lo
+        sobrescribe con su dividendo y ``Bono`` con su cupon. Es el
+        punto de extension polimorfico que PRAC2 introduce.
+        """
+        return 0.0
+
     def mostrar(self) -> None:
-        """Imprime por pantalla un resumen del instrumento."""
+        """Imprime por pantalla un resumen del instrumento.
+
+        Usa ``type(self).__name__`` para que las subclases hereden el
+        formato y solo anadan sus campos con ``super().mostrar()``.
+        """
         print(
-            f"[InstrumentoBase] {self.id} ({self.simbolo}): "
+            f"[{type(self).__name__}] {self.id} ({self.simbolo}): "
             f"{self.nombre!r}  precio_base={self.precio_base:.2f}  "
-            f"volatilidad={self._volatilidad:.2f}"
+            f"volatilidad={self._volatilidad:.2f}  flujo_anual={self.flujo_anual():.2f}"
         )
 
     # ---- representacion e identidad --------------------------------------
