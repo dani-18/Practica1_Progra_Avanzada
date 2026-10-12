@@ -30,8 +30,8 @@ programa orientado a objetos en Python: `__init__`, encapsulamiento con
 representacion e igualdad por contenido. La **PRAC2** anade la
 **jerarquia de instrumentos** (`Accion`, `Bono` y `ETF` heredando de
 `InstrumentoBase`) con `super().__init__`, sobrescritura de metodos y
-polimorfismo. Las practicas PRAC3-PRAC4 iran anadiendo patrones, GUI y
-concurrencia.
+polimorfismo. Las practicas PRAC3-PRAC4 iran anadiendo patrones,
+**persistencia con SQLite**, GUI y concurrencia.
 
 ```bash
 python -m bolsa_sim --demo
@@ -218,13 +218,122 @@ Practica_Progra_Avanzada/
 
 ## 7. Roadmap
 
+### 7.1 Vision por hitos
+
 | Hito   | Tema | Foco                                                                  |
 |--------|------|------------------------------------------------------------------------|
 | **PRAC1** | **1** | **Entrega 1.** 4 clases, encapsulamiento, frozen dataclass, herencia preparada. |
 | **PRAC2** | **2** | **Esta entrega.** Jerarquia ``Accion/Bono/ETF(InstrumentoBase)``, herencia, sobrescritura y polimorfismo. |
 | Extra  |  —   | Interfaz CLI interactiva (``--cli``): operar mercado, cartera e historial. |
-| PRAC3  | 3    | Strategy + Factory para perfiles de cartera; excepciones de dominio.       |
-| PRAC4  | 4    | GUI, concurrencia, ≥ 70 % cobertura, tag ``v1.0.0``.                    |
+| **PRAC3** | **3** | Patrones (**Strategy + Factory**) + **excepciones de dominio** + **capa de persistencia**: **SQLite** como almacen principal y **exportacion de resultados a JSON/CSV**. |
+| **PRAC4** | **4** | GUI, concurrencia, ≥ 70 % cobertura, tag ``v1.0.0``.                    |
+
+### 7.2 PRAC3 en detalle (patrones + persistencia)
+
+La guia de PRAC3 exige **persistencia o integracion externa**. Este hito cubre
+explicitamente los cuatro puntos pedidos y los ancla en el modelo ya existente
+(``Operacion``, ``Cartera``, ``Mercado``):
+
+| Requisito PRAC3               | Solucion propuesta                                                                 |
+|-------------------------------|------------------------------------------------------------------------------------|
+| Persistencia                  | **SQLite** mediante el modulo de biblioteca estandar ``sqlite3`` (sin dependencias nuevas). |
+| Ficheros JSON/CSV             | Exportadores ``exportar_json()`` / ``exportar_csv()`` para operaciones, carteras y precios de sesion. |
+| Exportacion de resultados     | Volcado de valor liquidativo, posiciones e historial por cartera y por sesion.      |
+| Almacenamiento de operaciones | Libro **append-only** en SQLite: nunca se modifica ni se borra una operacion ya escrita. |
+
+**Diseno de la capa de persistencia** (estructura objetivo):
+
+```text
+src/bolsa_sim/persistencia/
+|-- __init__.py         API publica (conectar, RepositorioFactory, exportadores)
+|-- db.py               conexion sqlite3, PRAGMAs y versionado de esquema
+|-- esquema.sql         DDL de las tablas (fuente unica de verdad)
+|-- repositorios.py     RepositorioOperaciones / RepositorioCartera / RepositorioSesiones
+|-- fabrica.py          RepositorioFactory: elige backend (SQLite | memoria | JSON)   <-- Factory
+`-- exportadores.py     exportar_json() / exportar_csv()                              <-- Strategy de formato
+```
+
+**Esquema SQLite propuesto** (operaciones, carteras y sesiones de mercado):
+
+```sql
+-- Instrumentos: datos comunes + campos de subclase en JSON (Accion/Bono/ETF)
+CREATE TABLE instrumento (
+    id           TEXT PRIMARY KEY,
+    nombre       TEXT NOT NULL,
+    simbolo      TEXT NOT NULL,
+    tipo         TEXT NOT NULL,              -- 'accion' | 'bono' | 'etf' | ...
+    volatilidad  REAL NOT NULL,
+    precio_base  REAL NOT NULL,
+    detalle      TEXT NOT NULL DEFAULT '{}'  -- sector/dividendo/cupon/indice, en JSON
+);
+
+-- Carteras
+CREATE TABLE cartera (
+    id           INTEGER PRIMARY KEY,
+    propietario  TEXT NOT NULL,
+    efectivo     REAL NOT NULL CHECK (efectivo >= 0),
+    comision     REAL NOT NULL CHECK (comision >= 0)
+);
+
+-- Posiciones abiertas (estado actual; se recalculan desde el libro de operaciones)
+CREATE TABLE posicion (
+    cartera_id     INTEGER NOT NULL REFERENCES cartera(id),
+    instrumento_id TEXT    NOT NULL REFERENCES instrumento(id),
+    cantidad       INTEGER NOT NULL CHECK (cantidad > 0),
+    PRIMARY KEY (cartera_id, instrumento_id)
+);
+
+-- Libro de operaciones: APPEND-ONLY (sin UPDATE ni DELETE)
+CREATE TABLE operacion (
+    id               INTEGER PRIMARY KEY,
+    cartera_id       INTEGER NOT NULL REFERENCES cartera(id),
+    fecha            TEXT NOT NULL,
+    instrumento_id   TEXT NOT NULL REFERENCES instrumento(id),
+    cantidad         INTEGER NOT NULL CHECK (cantidad > 0),
+    precio_ejecucion REAL NOT NULL CHECK (precio_ejecucion > 0),
+    tipo             TEXT NOT NULL CHECK (tipo IN ('compra', 'venta'))
+);
+
+-- Mercados y sesiones de mercado
+CREATE TABLE mercado (
+    id      INTEGER PRIMARY KEY,
+    nombre  TEXT NOT NULL,
+    semilla INTEGER
+);
+CREATE TABLE sesion (
+    id         INTEGER PRIMARY KEY,
+    mercado_id INTEGER NOT NULL REFERENCES mercado(id),
+    numero     INTEGER NOT NULL,   -- contador de sesion (Mercado.sesion)
+    volumen    INTEGER NOT NULL,   -- volumen_total acumulado
+    UNIQUE (mercado_id, numero)
+);
+-- Snapshot de precios al cierre de cada sesion
+CREATE TABLE precio_sesion (
+    sesion_id      INTEGER NOT NULL REFERENCES sesion(id),
+    instrumento_id TEXT    NOT NULL REFERENCES instrumento(id),
+    precio         REAL    NOT NULL CHECK (precio > 0),
+    PRIMARY KEY (sesion_id, instrumento_id)
+);
+```
+
+**Tareas de PRAC3:**
+
+1. ``persistencia/db.py``: abrir conexion, ``PRAGMA foreign_keys=ON``,
+   ``journal_mode=WAL`` y esquema versionado (migraciones simples).
+2. Repositorios con **Strategy**: misma interfaz (``guardar_operacion``,
+   ``cargar_historial``, ``guardar_sesion``, ...) para los backends SQLite,
+   en memoria y JSON.
+3. **Factory** (``RepositorioFactory``) que devuelve el repositorio adecuado
+   segun la configuracion (p. ej. ``--db ruta.sqlite``).
+4. Integrar ``Cartera``/``Mercado`` para que ``invertir``, ``desinvertir`` y
+   ``avanzar_sesion`` persistan mediante inyeccion del repositorio, sin
+   acoplar el dominio al motor de almacenamiento.
+5. Exportadores JSON/CSV de resultados (valor liquidativo, posiciones,
+   historial de operaciones y precios por sesion).
+6. Excepciones de dominio (``ErrorPersistencia``, ``InstrumentoDesconocido``,
+   ``OperacionInvalida``, ...).
+7. Tests con ``sqlite3`` en memoria (``:memory:``) para no tocar disco y
+   mantener la cobertura >= 70 %.
 
 ## 8. Documentacion adicional
 
