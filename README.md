@@ -223,8 +223,7 @@ Practica_Progra_Avanzada/
 | Hito   | Tema | Foco                                                                  |
 |--------|------|------------------------------------------------------------------------|
 | **PRAC1** | **1** | **Entrega 1.** 4 clases, encapsulamiento, frozen dataclass, herencia preparada. |
-| **PRAC2** | **2** | **Esta entrega.** Jerarquia ``Accion/Bono/ETF(InstrumentoBase)``, herencia, sobrescritura y polimorfismo. |
-| Extra  |  —   | Interfaz CLI interactiva (``--cli``): operar mercado, cartera e historial. |
+| **PRAC2** | **2** | **Esta entrega.** Jerarquia ``Accion/Bono/ETF(InstrumentoBase)``, herencia, sobrescritura y polimorfismo + **interfaz CLI interactiva** (``--cli``): operar mercado, cartera e historial. |
 | **PRAC3** | **3** | Patrones (**Strategy + Factory**) + **excepciones de dominio** + **capa de persistencia**: **SQLite** como almacen principal y **exportacion de resultados a JSON/CSV**. |
 | **PRAC4** | **4** | GUI, concurrencia, ≥ 70 % cobertura, tag ``v1.0.0``.                    |
 
