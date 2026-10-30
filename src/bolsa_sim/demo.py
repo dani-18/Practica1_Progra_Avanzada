@@ -49,9 +49,14 @@ def instrumentos_demo() -> list[InstrumentoBase]:
     ]
 
 
-def mercado_demo(semilla: int | None = 42) -> Mercado:
+def mercado_demo(semilla: int | None = 42, deriva: float = 0.0) -> Mercado:
     """Mercado de ejemplo con los tres instrumentos de la jerarquia."""
-    return Mercado("Bolsa Continuo", {i.id: i for i in instrumentos_demo()}, semilla=semilla)
+    return Mercado(
+        "Bolsa Continuo",
+        {i.id: i for i in instrumentos_demo()},
+        semilla=semilla,
+        deriva=deriva,
+    )
 
 
 def cartera_demo(propietario: str = "Dani", efectivo: float = 1_000.0) -> Cartera:

@@ -3,6 +3,59 @@
 Todos los cambios relevantes del proyecto, en orden cronologico
 inverso. Sigue "Keep a Changelog".
 
+> Los conteos de tests de cada version son historicos. La version actual
+> (1.0.0) tiene **221 tests** y una cobertura de **~94 %**.
+
+## [1.0.0] - 2026-10-30 - PRAC3 + PRAC4 (patrones, persistencia, GUI)
+
+### Anadido
+- **Patron Strategy**:
+  - `bolsa_sim.estrategias` con `EstrategiaInversion`, `ComprarMantener`,
+    `Momentum` y `Rebalanceo`. Las estrategias solo **deciden**
+    (`Decision`); `Simulador` ejecuta las ordenes.
+  - `bolsa_sim.persistencia.exportadores` con `ExportadorJSON` y
+    `ExportadorCSV` intercambiables.
+- **Patron Factory**:
+  - `FabricaInstrumentos` (creacion y serializacion de `Accion/Bono/ETF`).
+  - `RepositorioFactory` (SQLite, memoria o JSON; infiere por extension).
+  - `crear_estrategia(nombre, **parametros)`.
+- **Excepciones de dominio** (`ErrorBolsa` y subclases) compatibles con
+  `ValueError`/`KeyError`/`RuntimeError`.
+- **Persistencia real**:
+  - SQLite como almacen principal (`persistencia/db.py`, `esquema.sql`).
+  - Repositorios SQLite, memoria y JSON con interfaz comun.
+  - `ServicioPersistencia` para guardar/cargar mercado, cartera, posiciones,
+    historial y sesiones; libro de operaciones append-only idempotente.
+- **Exportacion** JSON/CSV de cartera, posiciones, operaciones, sesiones y
+  metricas; `exportar_simulacion`.
+- **Metricas** (`metricas.py`): rentabilidad total/anualizada, volatilidad,
+  max drawdown, Sharpe y Sortino; `metricas_cartera`.
+- **Simulacion mas rica**: deriva de mercado, shocks puntuales, historial y
+  snapshots por sesion, curva de valor de la cartera.
+- **Concurrencia** (`concurrencia.py`): escenarios independientes en
+  `ThreadPoolExecutor` con resultados reproducibles.
+- **GUI Tkinter** (`gui.py`): tablas de mercado/posiciones, panel de metricas,
+  grafico de la curva, compra/venta, shock, simulacion, guardar/cargar/exportar.
+- **CLI ampliada**: `metrics`, `chart`, `strategies`, `strategy`, `simulate`,
+  `parallel`, `shock`, `export`, `save` y `load`.
+- **Entry point**: `--gui`, `--simulate`, `--parallel`, `--sessions`,
+  `--strategy`, `--seed`, `--drift` y `--export`.
+- Documentacion de arquitectura (`docs/ARQUITECTURA.md`) y job de CI que
+  genera la API con `pdoc`.
+- Tests: **88 -> 221**, cobertura ~94 % (`--cov-fail-under=70`).
+
+### Cambiado
+- `Mercado` incorpora `deriva`, `historial_precios`, `series`, `sesiones`,
+  `aplicar_shock`, `registrar_precio`, `avanzar_sesiones` y restauracion de
+  estado. La simulacion sigue siendo reproducible por semilla.
+- `Cartera` incorpora `capital_inicial`, `curva_valor`, `anotar_valor`,
+  `resumen`, API estricta `comprar`/`vender` e inyeccion de repositorio.
+- `InstrumentoBase` mantiene la igualdad por `id` (decision documentada).
+- `pyproject.toml`: version `1.0.0`, datos de paquete para `esquema.sql` y
+  `fail_under = 70`.
+- CI multi-version (3.10-3.13) con cobertura obligatoria y construccion de
+  documentacion.
+
 ## [0.4.0] - 2026-10-09 - Interfaz CLI interactiva
 
 ### Anadido

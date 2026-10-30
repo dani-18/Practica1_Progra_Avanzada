@@ -47,8 +47,9 @@ desktop.ini
 $RECYCLE.BIN/
 
 # === Docs generated locally (regenerable) =================================
+# La API se genera en CI con pdoc (python -m pdoc bolsa_sim -o docs/api).
+docs/api/
 # Si decides no versionar la salida de pdoc/Sphinx, descomenta:
-# docs/api/
 # docs/_build/
 
 # === Logs / temporales =====================================================

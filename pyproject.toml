@@ -7,8 +7,8 @@ build-backend = "setuptools.build_meta"
 # -----------------------------------------------------------------------------
 [project]
 name = "bolsa-sim"
-version = "0.4.0"
-description = "Simulador de Bolsa y Carteras (PRAC1-PRAC2 + CLI interactiva)."
+version = "1.0.0"
+description = "Simulador de Bolsa y Carteras (PRAC1-PRAC4: patrones, SQLite, GUI y concurrencia)."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
@@ -60,7 +60,7 @@ Issues = "https://github.com/dani-18/Practica1_Progra_Avanzada/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-bolsa_sim = ["py.typed"]
+bolsa_sim = ["py.typed", "persistencia/*.sql"]
 
 # -----------------------------------------------------------------------------
 # Pytest
@@ -90,6 +90,7 @@ branch = true
 source = ["bolsa_sim"]
 
 [tool.coverage.report]
+fail_under = 70
 exclude_lines = [
   "pragma: no cover",
   "raise NotImplementedError",
@@ -132,7 +133,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["PLR2004", "S101"]  # asserts y magic numbers en tests son esperados
+# asserts, magic numbers e imports locales (tkinter perezoso) en tests son esperados
+"tests/*" = ["PLR2004", "S101", "PLC0415", "PLR0402", "RUF059"]
+# La GUI importa Tkinter de forma perezosa para poder importarse en CI sin display.
+"src/bolsa_sim/gui.py" = ["PLC0415"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["bolsa_sim"]
