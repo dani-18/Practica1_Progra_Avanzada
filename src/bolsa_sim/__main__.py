@@ -19,10 +19,14 @@ from .cli import Shell
 from .concurrencia import comparar_estrategias
 from .demo import cartera_demo, instrumentos_demo, mercado_demo
 from .estrategias import crear_estrategia, estrategias_disponibles
+from .excepciones import ErrorBolsa
 from .gui import lanzar_gui
+from .logging_config import configurar_logging, obtener_logger
 from .metricas import metricas_cartera
 from .persistencia.exportadores import exportar_resultados
 from .simulacion import Simulador
+
+log = obtener_logger(__name__)
 
 
 def _demo() -> int:
@@ -75,6 +79,7 @@ def _demo() -> int:
     print("\n--- comparacion de estrategias (concurrente, 40 sesiones) ---")
     for item in comparar_estrategias(semilla=42, sesiones=40):
         print(f"  {item.resultado}")
+    log.info("demo completada")
     return 0
 
 
@@ -144,32 +149,49 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=42, help="semilla reproducible")
     p.add_argument("--drift", type=float, default=0.0, help="deriva diaria (ej. 0.001)")
     p.add_argument("--export", metavar="RUTA", help="exporta la demo a JSON/CSV")
+    verbosidad = p.add_mutually_exclusive_group()
+    verbosidad.add_argument(
+        "-v", "--verbose", action="store_true", help="logging detallado (DEBUG)"
+    )
+    verbosidad.add_argument(
+        "-q", "--quiet", action="store_true", help="solo errores en el logging"
+    )
+    p.add_argument("--log-file", metavar="RUTA", help="guarda el log en un fichero")
     p.add_argument("--version", action="store_true", help="imprime la version")
     return p
 
 
 def cli(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    if args.version:
-        print(f"bolsa-sim {__version__}")
-        resultado = 0
-    elif args.gui:
-        resultado = _gui()
-    elif args.cli:
-        resultado = _cli_interactiva()
-    elif args.parallel:
-        resultado = _paralelo(args.sessions)
-    elif args.simulate:
-        resultado = _simular(args.sessions, args.strategy, args.seed, args.drift)
-    elif args.export:
-        mercado = mercado_demo()
-        cartera = cartera_demo()
-        cartera.invertir(mercado, "ACME", 2, mercado.precio_de("ACME"), "s0000")
-        formato = "csv" if args.export.lower().endswith(".csv") else "json"
-        print(exportar_resultados(mercado, cartera, args.export, formato))
-        resultado = 0
-    else:
-        resultado = _demo()
+    nivel = "DEBUG" if args.verbose else "ERROR" if args.quiet else "INFO"
+    configurar_logging(nivel, args.log_file)
+    log.debug("argumentos: %s", vars(args))
+
+    try:
+        if args.version:
+            print(f"bolsa-sim {__version__}")
+            resultado = 0
+        elif args.gui:
+            resultado = _gui()
+        elif args.cli:
+            resultado = _cli_interactiva()
+        elif args.parallel:
+            resultado = _paralelo(args.sessions)
+        elif args.simulate:
+            resultado = _simular(args.sessions, args.strategy, args.seed, args.drift)
+        elif args.export:
+            mercado = mercado_demo()
+            cartera = cartera_demo()
+            cartera.invertir(mercado, "ACME", 2, mercado.precio_de("ACME"), "s0000")
+            formato = "csv" if args.export.lower().endswith(".csv") else "json"
+            print(exportar_resultados(mercado, cartera, args.export, formato))
+            resultado = 0
+        else:
+            resultado = _demo()
+    except ErrorBolsa as exc:
+        log.error("error de dominio: %s", exc)
+        print(f"Error: {exc}")
+        resultado = 1
     return resultado
 
 

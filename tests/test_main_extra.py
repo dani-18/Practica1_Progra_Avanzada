@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from bolsa_sim.__main__ import cli
 
 
@@ -39,3 +41,13 @@ def test_exportar_csv_desde_cli(tmp_path) -> None:
 def test_drift_en_simulacion(capsys) -> None:
     assert cli(["--simulate", "--sessions", "3", "--drift", "0.01"]) == 0
     assert "sesiones" in capsys.readouterr().out
+
+
+def test_error_de_dominio_devuelve_codigo_1(capsys) -> None:
+    assert cli(["--simulate", "--sessions", "0"]) == 1
+    assert "Error:" in capsys.readouterr().out
+
+
+def test_verbose_y_quiet_son_excluyentes() -> None:
+    with pytest.raises(SystemExit):
+        cli(["--verbose", "--quiet"])

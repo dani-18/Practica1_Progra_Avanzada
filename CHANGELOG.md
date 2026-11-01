@@ -4,7 +4,43 @@ Todos los cambios relevantes del proyecto, en orden cronologico
 inverso. Sigue "Keep a Changelog".
 
 > Los conteos de tests de cada version son historicos. La version actual
-> (1.0.0) tiene **221 tests** y una cobertura de **~94 %**.
+> tiene **245 tests** y una cobertura de **~94 %**.
+
+## [Unreleased] - 2026-11-01 - Logging, docs publicadas y foco en dominio
+
+### Anadido
+- **Varias carteras por usuario** (`gestor_carteras.py`): `GestorCarteras`
+  registra carteras, rechaza duplicados, mantiene la cartera activa y
+  permite cambiar de usuario. Nuevas excepciones `CarteraDuplicada` y
+  `CarteraDesconocida`.
+- **CLI de carteras**: comandos `portfolios`, `new` y `use` (con alias).
+  `save`/`load` persisten y recuperan todas las carteras.
+- **GUI de carteras**: desplegable de usuario y boton "Nueva cartera".
+- **Persistencia multiple**: `ServicioPersistencia.guardar_carteras()` y
+  `cargar_carteras()`.
+- **Logging con stdlib** (`logging_config.py`): `configurar_logging` y
+  `obtener_logger`, sin handlers al importar (solo `NullHandler`). Registra
+  simulaciones, persistencia, shocks y errores de dominio.
+- Flags `--verbose`, `--quiet` y `--log-file` en `python -m bolsa_sim`;
+  variable de entorno `BOLSA_LOG_LEVEL`.
+- Manejo de errores de dominio en el entry point (devuelve codigo 1).
+- [`docs/CASOS_DE_USO.md`](docs/CASOS_DE_USO.md): seis escenarios con
+  salidas reales (buy & hold, crash, comparacion, persistencia y polimorfismo).
+- [`docs/DESARROLLO.md`](docs/DESARROLLO.md): guia de desarrollo, logging, CI
+  y checklist de entrega.
+- Despliegue de la API `pdoc` en **GitHub Pages** desde `main`
+  (`actions/deploy-pages`), ademas del artifact de CI.
+- `src/bolsa_sim/py.typed` (PEP 561), que ya estaba declarado en
+  `package-data`.
+- Seccion "Alcance y limites" en el README para evitar promesas que el
+  simulador no cubre.
+
+### Cambiado
+- README reequilibrado hacia el comportamiento financiero: casos de uso y
+  resultados reales antes que infraestructura; los detalles de desarrollo se
+  mueven a `docs/DESARROLLO.md`.
+- Tests: **221 -> 245** (logging, gestor de carteras, CLI/GUI y persistencia
+  multiple).
 
 ## [1.0.0] - 2026-10-30 - PRAC3 + PRAC4 (patrones, persistencia, GUI)
 

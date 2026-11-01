@@ -8,18 +8,22 @@ reconstruye la jerarquia mediante ``FabricaInstrumentos``.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..cartera import Cartera
 from ..excepciones import ErrorPersistencia
 from ..fabrica import FabricaInstrumentos
+from ..logging_config import obtener_logger
 from ..mercado import Mercado
 from .exportadores import exportar_resultados
 from .repositorios import Repositorio
 
 if TYPE_CHECKING:
     from ..instrumento import InstrumentoBase
+
+log = obtener_logger(__name__)
 
 
 class ServicioPersistencia:
@@ -30,11 +34,20 @@ class ServicioPersistencia:
 
     # ---- guardar ---------------------------------------------------------
     def guardar_estado(self, mercado: Mercado, cartera: Cartera) -> None:
-        """Persiste el estado completo de forma idempotente."""
+        """Persiste una cartera y el mercado de forma idempotente."""
+        self.guardar_carteras(mercado, [cartera])
+
+    def guardar_carteras(self, mercado: Mercado, carteras: Iterable[Cartera]) -> None:
+        """Persiste el mercado una vez y todas las carteras indicadas."""
+        lista = list(carteras)
+        if not lista:
+            raise ErrorPersistencia("no hay carteras que guardar")
+
         self.repositorio.guardar_instrumentos(mercado.instrumentos.values())
-        self.repositorio.guardar_cartera(cartera)
-        self.repositorio.guardar_posiciones(cartera.propietario, dict(cartera.posiciones))
-        self.repositorio.sincronizar_operaciones(cartera.propietario, cartera.historial)
+        for cartera in lista:
+            self.repositorio.guardar_cartera(cartera)
+            self.repositorio.guardar_posiciones(cartera.propietario, dict(cartera.posiciones))
+            self.repositorio.sincronizar_operaciones(cartera.propietario, cartera.historial)
         for sesion in mercado.sesiones:
             self.repositorio.guardar_sesion(
                 mercado.nombre,
@@ -42,11 +55,20 @@ class ServicioPersistencia:
                 int(sesion["volumen"]),
                 dict(sesion["precios"]),
             )
+        log.info(
+            "estado guardado: mercado=%s instrumentos=%d carteras=%d operaciones=%d sesiones=%d",
+            mercado.nombre,
+            len(mercado.instrumentos),
+            len(lista),
+            sum(len(c.historial) for c in lista),
+            len(mercado.sesiones),
+        )
 
     # ---- cargar ----------------------------------------------------------
     def cargar_mercado(self, nombre: str, *, semilla: int | None = None) -> Mercado:
         datos = self.repositorio.listar_instrumentos()
         if not datos:
+            log.error("no hay instrumentos guardados en el almacen (mercado=%s)", nombre)
             raise ErrorPersistencia("no hay instrumentos guardados en el almacen")
         fabrica = FabricaInstrumentos.por_defecto()
         instrumentos: list[InstrumentoBase] = [fabrica.desde_dict(d) for d in datos]
@@ -69,6 +91,12 @@ class ServicioPersistencia:
                 series=series,
                 sesiones=sesiones,
             )
+        log.info(
+            "mercado cargado: nombre=%s instrumentos=%d sesiones=%d",
+            nombre,
+            len(instrumentos),
+            len(sesiones),
+        )
         return mercado
 
     def cargar_cartera(
@@ -80,8 +108,15 @@ class ServicioPersistencia:
     ) -> Cartera:
         datos = self.repositorio.cargar_cartera(propietario)
         if datos is None:
+            log.error("cartera %r no existe en el almacen", propietario)
             raise ErrorPersistencia(f"cartera {propietario!r} no existe en el almacen")
         historial = self.repositorio.listar_operaciones(propietario)
+        log.info(
+            "cartera cargada: propietario=%s operaciones=%d posiciones=%d",
+            propietario,
+            len(historial),
+            len(datos.get("posiciones", {})),
+        )
         return Cartera.desde_estado(
             propietario=propietario,
             efectivo=float(datos["efectivo"]),
@@ -93,6 +128,24 @@ class ServicioPersistencia:
             repositorio=self.repositorio if con_repositorio else None,
         )
 
+    def cargar_carteras(
+        self,
+        nombre_mercado: str,
+        propietarios: Iterable[str] | None = None,
+        *,
+        semilla: int | None = None,
+    ) -> tuple[Mercado, list[Cartera]]:
+        """Carga el mercado y todas las carteras (o solo las indicadas)."""
+        mercado = self.cargar_mercado(nombre_mercado, semilla=semilla)
+        nombres = list(propietarios) if propietarios is not None else self.listar_carteras()
+        carteras = [self.cargar_cartera(nombre, mercado) for nombre in nombres]
+        log.info(
+            "estado cargado: mercado=%s carteras=%s",
+            nombre_mercado,
+            ", ".join(c.propietario for c in carteras) or "ninguna",
+        )
+        return mercado, carteras
+
     def cargar_estado(
         self,
         nombre_mercado: str,
@@ -100,9 +153,8 @@ class ServicioPersistencia:
         *,
         semilla: int | None = None,
     ) -> tuple[Mercado, Cartera]:
-        mercado = self.cargar_mercado(nombre_mercado, semilla=semilla)
-        cartera = self.cargar_cartera(propietario, mercado)
-        return mercado, cartera
+        mercado, carteras = self.cargar_carteras(nombre_mercado, [propietario], semilla=semilla)
+        return mercado, carteras[0]
 
     # ---- utilidades ------------------------------------------------------
     def listar_carteras(self) -> list[str]:

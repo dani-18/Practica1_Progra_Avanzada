@@ -171,3 +171,21 @@ def test_gui_sin_seleccion(ventana) -> None:
     app, _, _ = ventana
     assert app._seleccionado() is None
     assert "Selecciona" in app.estado.get()
+
+
+def test_gui_crear_y_cambiar_cartera(ventana) -> None:
+    app, _raiz, monkeypatch = ventana
+    import tkinter.simpledialog as simpledialog
+
+    monkeypatch.setattr(simpledialog, "askstring", lambda *a, **k: "Ana")
+    monkeypatch.setattr(simpledialog, "askfloat", lambda *a, **k: 1_500.0)
+    app.nueva_cartera()
+    assert app.cartera.propietario == "Ana"
+    assert app.cartera.efectivo == 1_500.0
+    assert "Ana" in app.selector_cartera["values"]
+    assert "Ana" in app.estado.get()
+
+    app.selector_cartera.set("Dani")
+    app.seleccionar_cartera()
+    assert app.cartera.propietario == "Dani"
+    assert "Dani" in app.estado.get()

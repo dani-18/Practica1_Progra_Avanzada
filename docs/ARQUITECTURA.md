@@ -1,7 +1,9 @@
 # Arquitectura del simulador (v1.0.0)
 
 Documento de diseño de la entrega PRAC3 + PRAC4. Complementa al `README.md`
-(uso rápido) y a la API generada con `pdoc` (`docs/api/`).
+(uso rápido), a [`CASOS_DE_USO.md`](CASOS_DE_USO.md) (comportamiento
+financiero real), a [`DESARROLLO.md`](DESARROLLO.md) (guía de desarrollo) y a
+la API generada con `pdoc` (`docs/api/`).
 
 ## 1. Capas
 
@@ -10,6 +12,7 @@ Documento de diseño de la entrega PRAC3 + PRAC4. Complementa al `README.md`
 |  Interfaz: CLI (cli.py) | GUI Tkinter (gui.py) | __main__.py  |
 +---------------------------------------------------------------+
 |  Aplicacion: simulacion.py | concurrencia.py | metricas.py    |
+|         gestor_carteras.py | logging_config.py (transversal)   |
 +---------------------------------------------------------------+
 |  Dominio: instrumento.py / accion.py / bono.py / etf.py       |
 |           cartera.py | operacion.py | mercado.py              |
@@ -49,6 +52,10 @@ repositorio en memoria y cambiar de backend sin tocar las clases de negocio.
   puede recibir un repositorio inyectado para persistir cada operacion.
 * **`Mercado`** evoluciona precios, guarda una serie historica por instrumento
   y snapshots de cada sesion; acepta una deriva y shocks extremos.
+* **`GestorCarteras`** registra varias carteras (una por usuario), rechaza
+  duplicados sin distinguir mayusculas y mantiene la **cartera activa** que
+  usan la CLI, la GUI y la persistencia. Cada cartera conserva su efectivo,
+  posiciones, historial y curva de forma independiente.
 
 ### Igualdad por `id`
 
@@ -138,9 +145,12 @@ Backends:
 | `RepositorioJSON` | intercambio de estados | fichero legible y portable |
 
 `ServicioPersistencia.guardar_estado()` es idempotente: guarda instrumentos,
-cartera, posiciones, historial y sesiones. `sincronizar_operaciones()` solo
-anade el sufijo nuevo y falla si el historial en memoria no es una extension
-del libro persistido, protegiendo la semantica append-only.
+cartera, posiciones, historial y sesiones. `guardar_carteras()` hace lo mismo
+para varias carteras guardando el mercado una sola vez, y
+`cargar_carteras()` reconstruye todas (o una seleccion).
+`sincronizar_operaciones()` solo anade el sufijo nuevo y falla si el historial
+en memoria no es una extension del libro persistido, protegiendo la semantica
+append-only.
 
 Exportacion:
 
@@ -189,13 +199,30 @@ la CLI/GUI capturan `ErrorBolsa` y el codigo antiguo sigue funcionando.
 
 ## 9. Calidad
 
-* 221 tests, cobertura ~94 % (`--cov-fail-under=70` en CI).
+* 245 tests, cobertura ~94 % (`--cov-fail-under=70` en CI).
 * Black + Ruff + pre-commit.
-* CI multi-version (3.10-3.13) y job de documentacion con `pdoc`.
+* CI multi-version (3.10-3.13), `pdoc` y despliegue de la API en GitHub Pages
+  desde `main`.
 * Tests con SQLite `:memory:` y ficheros temporales; la GUI se salta en CI
   sin display (`pytest.importorskip` + `gui_disponible`).
 
-## 10. Hoja de ruta
+## 10. Logging
+
+`logging_config.py` centraliza el logging con la biblioteca estándar. La
+biblioteca no instala handlers al importarse (solo un `NullHandler`), de modo
+que no contamina a la aplicación anfitriona. `configurar_logging` es
+idempotente y permite consola y/o fichero.
+
+* `obtener_logger(__name__)` crea loggers bajo `bolsa_sim`.
+* `INFO`: simulación, guardado/carga, shocks.
+* `DEBUG`: sesiones, comandos y argumentos de la CLI.
+* `WARNING`: entradas/comandos inválidos.
+* `ERROR`: errores de dominio y persistencia antes de propagar.
+
+El entry point expone `--verbose`, `--quiet` y `--log-file`; también se puede
+fijar el nivel con `BOLSA_LOG_LEVEL`.
+
+## 11. Hoja de ruta
 
 PRAC3 y PRAC4 quedan cubiertas (patrones, excepciones, SQLite, JSON/CSV,
 GUI, concurrencia, cobertura y tag `v1.0.0`). Lineas futuras:

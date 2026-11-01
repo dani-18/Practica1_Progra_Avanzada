@@ -31,12 +31,16 @@ from .estrategias import (
     estrategia_desde_pares,
 )
 from .excepciones import ErrorBolsa
+from .gestor_carteras import GestorCarteras
+from .logging_config import obtener_logger
 from .mercado import Mercado
 from .metricas import metricas_cartera
 from .persistencia.exportadores import exportar_resultados, formatos_disponibles
 from .persistencia.fabrica import RepositorioFactory
 from .persistencia.servicio import ServicioPersistencia
 from .simulacion import Simulador
+
+log = obtener_logger(__name__)
 
 
 class Shell:
@@ -53,7 +57,7 @@ class Shell:
         estrategia: EstrategiaInversion | None = None,
     ) -> None:
         self.mercado = mercado if mercado is not None else mercado_demo()
-        self.cartera = cartera if cartera is not None else cartera_demo()
+        self._gestor = GestorCarteras(cartera if cartera is not None else cartera_demo())
         self._entrada = entrada
         self._salida = salida
         self.repositorio = repositorio
@@ -83,11 +87,29 @@ class Shell:
             "shock": self._cmd_shock,
             "chart": self._cmd_chart,
             "export": self._cmd_export,
+            "portfolios": self._cmd_portfolios,
+            "carteras": self._cmd_portfolios,
+            "users": self._cmd_portfolios,
+            "new": self._cmd_new,
+            "create": self._cmd_new,
+            "use": self._cmd_use,
+            "switch": self._cmd_use,
+            "select": self._cmd_use,
             "save": self._cmd_save,
             "load": self._cmd_load,
             "quit": self._cmd_quit,
             "exit": self._cmd_quit,
         }
+
+    @property
+    def cartera(self) -> Cartera:
+        """Cartera activa sobre la que operan los comandos."""
+        return self._gestor.actual
+
+    @property
+    def carteras(self) -> GestorCarteras:
+        """Gestor de todas las carteras de la sesion."""
+        return self._gestor
 
     # ---- motor de la consola ---------------------------------------------
     def ejecutar(self, linea: str) -> bool:
@@ -95,6 +117,7 @@ class Shell:
         try:
             partes = _dividir_linea(linea)
         except ValueError as exc:
+            log.warning("entrada no valida en la CLI: %s", exc)
             self._salida(f"Entrada no valida: {exc}")
             return True
         if not partes:
@@ -102,17 +125,23 @@ class Shell:
         comando, *args = partes
         metodo = self._comandos.get(comando.lower())
         if metodo is None:
+            log.warning("comando desconocido en la CLI: %r", comando)
             self._salida(f"Comando desconocido: {comando!r}. Usa 'help'.")
             return True
+        log.debug("CLI ejecuta %r con argumentos=%r", comando, args)
         try:
             return metodo(args)
         except ErrorBolsa as exc:
+            log.error("error de dominio en la CLI (%s): %s", comando, exc)
             self._salida(f"Error: {exc}")
             return True
 
     def run(self) -> None:
         """Bucle principal: lee lineas hasta ``quit``/``exit`` o EOF."""
-        self._salida("Simulador de Bolsa (CLI). Escribe 'help' para ver los comandos.")
+        self._salida(
+            "Simulador de Bolsa (CLI). Escribe 'help' para ver los comandos; "
+            f"cartera activa: {self._gestor.activa!r}."
+        )
         while True:
             try:
                 linea = self._entrada("bolsa> ")
@@ -136,7 +165,10 @@ class Shell:
         self._salida("  help                         muestra esta ayuda")
         self._salida("  list                         lista los instrumentos del mercado")
         self._salida("  market                       muestra el estado del mercado")
-        self._salida("  portfolio | status           muestra la cartera y su valor")
+        self._salida("  portfolio | status           muestra la cartera activa y su valor")
+        self._salida("  portfolios | carteras | users  lista las carteras y marca la activa")
+        self._salida("  new <usuario> [efectivo] [comision]  crea una cartera y la activa")
+        self._salida("  use <usuario>                cambia la cartera activa")
         self._salida("  price <instrumento>          consulta el precio actual")
         self._salida("  buy <instrumento> <cantidad> [precio]   compra")
         self._salida("  sell <instrumento> <cantidad> [precio]  vende")
@@ -150,8 +182,8 @@ class Shell:
         self._salida("  simulate [n] [estrategia]    simula n sesiones y muestra metricas")
         self._salida("  parallel [n]                 compara todas las estrategias en paralelo")
         self._salida("  export <json|csv> <ruta>     exporta resultados")
-        self._salida("  save [ruta]                  guarda en SQLite (o backend actual)")
-        self._salida("  load <ruta> [propietario]    carga un estado guardado")
+        self._salida("  save [ruta]                  guarda todas las carteras en SQLite")
+        self._salida("  load <ruta> [propietario]    carga el estado y elige la cartera activa")
         self._salida("  quit | exit                  sale de la consola")
         return True
 
@@ -171,6 +203,67 @@ class Shell:
     def _cmd_portfolio(self, args: list[str]) -> bool:
         self.cartera.mostrar()
         self._salida(f"Valor liquidativo: {self.cartera.valor_total(self.mercado):.2f} EUR")
+        return True
+
+    def _cmd_portfolios(self, args: list[str]) -> bool:
+        self._salida(f"Carteras ({len(self._gestor)}):")
+        for nombre in self._gestor.nombres():
+            cartera = self._gestor.obtener(nombre)
+            marca = "*" if nombre == self._gestor.activa else " "
+            self._salida(
+                f" {marca} {nombre:<16} "
+                f"efectivo={cartera.efectivo:>10.2f} EUR  "
+                f"valor={cartera.valor_total(self.mercado):>10.2f} EUR  "
+                f"ops={cartera.total_operaciones}"
+            )
+        return True
+
+    def _cmd_new(self, args: list[str]) -> bool:
+        if not args:
+            self._salida("Uso: new <usuario> [efectivo] [comision]")
+            return True
+        efectivo = 1_000.0
+        comision = 1.0
+        if len(args) >= 2:
+            try:
+                efectivo = float(args[1])
+            except ValueError:
+                self._salida("efectivo debe ser un numero >= 0")
+                return True
+        if len(args) >= 3:
+            try:
+                comision = float(args[2])
+            except ValueError:
+                self._salida("comision debe ser un numero >= 0")
+                return True
+        try:
+            cartera = self._gestor.crear(args[0], efectivo, comision)
+        except ErrorBolsa as exc:
+            self._salida(f"Error: {exc}")
+            return True
+        if self.repositorio is not None:
+            cartera.repositorio = self.repositorio
+        self._salida(
+            f"Cartera creada y activa: {cartera.propietario!r} "
+            f"(efectivo={cartera.efectivo:.2f} EUR, comision={cartera.comision:.2f})"
+        )
+        return True
+
+    def _cmd_use(self, args: list[str]) -> bool:
+        if not args:
+            self._salida(f"Cartera activa: {self._gestor.activa!r}. Uso: use <usuario>")
+            return True
+        try:
+            cartera = self._gestor.seleccionar(args[0])
+        except ErrorBolsa as exc:
+            self._salida(f"Error: {exc}")
+            return True
+        if self.repositorio is not None:
+            cartera.repositorio = self.repositorio
+        self._salida(
+            f"Cartera activa: {cartera.propietario!r} "
+            f"(efectivo={cartera.efectivo:.2f} EUR, posiciones={len(cartera.posiciones)})"
+        )
         return True
 
     def _cmd_price(self, args: list[str]) -> bool:
@@ -365,8 +458,14 @@ class Shell:
             self.cartera.repositorio = self.repositorio
         if self.servicio is None:  # pragma: no cover - defensivo
             self.servicio = ServicioPersistencia(self.repositorio)
-        self.servicio.guardar_estado(self.mercado, self.cartera)
-        self._salida(f"Estado guardado ({type(self.repositorio).__name__}).")
+        for cartera in self._gestor:
+            cartera.repositorio = self.repositorio
+        self.mercado.repositorio = self.repositorio
+        self.servicio.guardar_carteras(self.mercado, self._gestor.carteras())
+        self._salida(
+            f"Estado guardado ({type(self.repositorio).__name__}): "
+            f"{len(self._gestor)} cartera(s)."
+        )
         return True
 
     def _cmd_load(self, args: list[str]) -> bool:
@@ -377,21 +476,30 @@ class Shell:
         propietario = args[1] if len(args) > 1 else self.cartera.propietario
         repositorio = RepositorioFactory.desde_ruta(ruta)
         servicio = ServicioPersistencia(repositorio)
-        mercado, cartera = servicio.cargar_estado(
-            self.mercado.nombre, propietario, semilla=self.mercado.semilla
-        )
+        try:
+            mercado = servicio.cargar_mercado(self.mercado.nombre, semilla=self.mercado.semilla)
+            propietarios = servicio.listar_carteras()
+            if not propietarios:
+                raise ErrorBolsa("el almacen no contiene carteras")
+            carteras = [servicio.cargar_cartera(nombre, mercado) for nombre in propietarios]
+            gestor = GestorCarteras.desde_carteras(carteras, activa=propietario)
+        except ErrorBolsa:
+            repositorio.cerrar()
+            raise
         anterior = self.repositorio
         self.mercado = mercado
-        self.cartera = cartera
+        self._gestor = gestor
         self.repositorio = repositorio
         self.servicio = servicio
-        self.cartera.repositorio = repositorio
+        for cartera in self._gestor:
+            cartera.repositorio = repositorio
         self.mercado.repositorio = repositorio
         if anterior is not None and anterior is not repositorio:
             anterior.cerrar()
         self._salida(
-            f"Cargado {propietario!r}: {mercado.sesion} sesiones, "
-            f"{cartera.total_operaciones} operaciones."
+            f"Cargado: {len(self._gestor)} carteras ({', '.join(self._gestor.nombres())}); "
+            f"activa {self._gestor.activa!r}: {mercado.sesion} sesiones, "
+            f"{self.cartera.total_operaciones} operaciones."
         )
         return True
 

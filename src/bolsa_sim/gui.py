@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 from .cartera import Cartera
 from .demo import cartera_demo, mercado_demo
 from .excepciones import ErrorBolsa
+from .gestor_carteras import GestorCarteras
 from .mercado import Mercado
 from .metricas import metricas_cartera
 from .persistencia.exportadores import exportar_resultados
@@ -123,13 +124,18 @@ class AplicacionGUI:
         self.ttk = ttk
         self.raiz = raiz
         self.mercado = mercado if mercado is not None else mercado_demo()
-        self.cartera = cartera if cartera is not None else cartera_demo()
+        self._gestor = GestorCarteras(cartera if cartera is not None else cartera_demo())
         self.repositorio: Any | None = None
         self.servicio: ServicioPersistencia | None = None
         raiz.title("Simulador de Bolsa y Carteras")
-        raiz.minsize(900, 620)
+        raiz.minsize(900, 640)
         self._construir()
         self.actualizar()
+
+    @property
+    def cartera(self) -> Cartera:
+        """Cartera activa que se muestra y sobre la que se opera."""
+        return self._gestor.actual
 
     # ---- construccion ----------------------------------------------------
     def _construir(self) -> None:
@@ -180,6 +186,22 @@ class AplicacionGUI:
         # --- panel de cartera --------------------------------------------
         derecha = ttk.LabelFrame(cuerpo, text="Cartera", padding=6)
         derecha.pack(side="left", fill="y")
+
+        selector = ttk.Frame(derecha)
+        selector.pack(fill="x", pady=(0, 8))
+        ttk.Label(selector, text="Usuario:", width=13).pack(side="left")
+        self.selector_cartera = ttk.Combobox(
+            selector,
+            state="readonly",
+            values=self._gestor.nombres(),
+            width=16,
+        )
+        self.selector_cartera.set(self.cartera.propietario)
+        self.selector_cartera.pack(side="left", fill="x", expand=True)
+        self.selector_cartera.bind(
+            "<<ComboboxSelected>>", lambda _evento: self.seleccionar_cartera()
+        )
+
         self.variables: dict[str, Any] = {}
         for clave, etiqueta in (
             ("propietario", "Propietario"),
@@ -214,6 +236,7 @@ class AplicacionGUI:
         acciones = ttk.Frame(derecha)
         acciones.pack(fill="x", pady=(8, 0))
         for texto, accion in (
+            ("Nueva cartera", self.nueva_cartera),
             ("Metricas", self.mostrar_metricas),
             ("Guardar", self.guardar),
             ("Cargar", self.cargar),
@@ -247,6 +270,9 @@ class AplicacionGUI:
         for clave, valor in resumen_cartera(self.cartera, self.mercado).items():
             if clave in self.variables:
                 self.variables[clave].set(valor)
+        if hasattr(self, "selector_cartera"):
+            self.selector_cartera["values"] = self._gestor.nombres()
+            self.selector_cartera.set(self.cartera.propietario)
         self._dibujar_curva()
         self.estado.set(
             f"Sesion {self.mercado.sesion} | {self.cartera.propietario} | "
@@ -287,6 +313,52 @@ class AplicacionGUI:
             return None
         valores = self.tabla.item(seleccion[0], "values")
         return str(valores[0]) if valores else None
+
+    def seleccionar_cartera(self) -> None:
+        """Activa la cartera elegida en el desplegable."""
+        try:
+            cartera = self._gestor.seleccionar(self.selector_cartera.get())
+        except ErrorBolsa as exc:
+            self.estado.set(f"Error: {exc}")
+            self.actualizar()
+            return
+        if self.repositorio is not None:
+            cartera.repositorio = self.repositorio
+        self.actualizar()
+        self.estado.set(f"Cartera activa: {cartera.propietario}")
+
+    def nueva_cartera(self) -> None:
+        """Pide usuario, efectivo y comision y crea una cartera activa."""
+        from tkinter import messagebox, simpledialog
+
+        nombre = simpledialog.askstring("Nueva cartera", "Usuario:")
+        if not nombre:
+            return
+        efectivo = simpledialog.askfloat(
+            "Nueva cartera",
+            "Efectivo inicial (EUR):",
+            initialvalue=1_000.0,
+            minvalue=0.0,
+        )
+        if efectivo is None:
+            return
+        comision = simpledialog.askfloat(
+            "Nueva cartera",
+            "Comision por operacion (EUR):",
+            initialvalue=1.0,
+            minvalue=0.0,
+        )
+        if comision is None:
+            return
+        try:
+            cartera = self._gestor.crear(nombre, efectivo, comision)
+        except ErrorBolsa as exc:
+            messagebox.showerror("Nueva cartera", str(exc))
+            return
+        if self.repositorio is not None:
+            cartera.repositorio = self.repositorio
+        self.actualizar()
+        self.estado.set(f"Cartera creada y activa: {cartera.propietario}")
 
     def avanzar_sesion(self) -> None:
         self.mercado.avanzar_sesion(100)
@@ -365,11 +437,13 @@ class AplicacionGUI:
         anterior = self.repositorio
         self.repositorio = RepositorioFactory.desde_ruta(ruta)
         self.servicio = ServicioPersistencia(self.repositorio)
-        self.servicio.guardar_estado(self.mercado, self.cartera)
-        self.cartera.repositorio = self.repositorio
+        for cartera in self._gestor:
+            cartera.repositorio = self.repositorio
+        self.mercado.repositorio = self.repositorio
+        self.servicio.guardar_carteras(self.mercado, self._gestor.carteras())
         if anterior is not None and anterior is not self.repositorio:
             anterior.cerrar()
-        self.estado.set(f"Estado guardado en {ruta}")
+        self.estado.set(f"Estado guardado en {ruta} ({len(self._gestor)} cartera(s))")
 
     def cargar(self) -> None:
         from tkinter import filedialog, messagebox
@@ -379,22 +453,34 @@ class AplicacionGUI:
         )
         if not ruta:
             return
+        anterior = self.repositorio
+        repositorio = RepositorioFactory.desde_ruta(ruta)
+        servicio = ServicioPersistencia(repositorio)
         try:
-            anterior = self.repositorio
-            self.repositorio = RepositorioFactory.desde_ruta(ruta)
-            servicio = ServicioPersistencia(self.repositorio)
-            self.mercado, self.cartera = servicio.cargar_estado(
-                self.mercado.nombre,
-                self.cartera.propietario,
-                semilla=self.mercado.semilla,
-            )
-            self.servicio = servicio
-            self.cartera.repositorio = self.repositorio
-            if anterior is not None and anterior is not self.repositorio:
-                anterior.cerrar()
-            self.actualizar()
+            mercado = servicio.cargar_mercado(self.mercado.nombre, semilla=self.mercado.semilla)
+            propietarios = servicio.listar_carteras()
+            if not propietarios:
+                raise ErrorBolsa("el almacen no contiene carteras")
+            carteras = [servicio.cargar_cartera(nombre, mercado) for nombre in propietarios]
+            activa = self.cartera.propietario
+            if activa not in propietarios:
+                activa = propietarios[0]
+            gestor = GestorCarteras.desde_carteras(carteras, activa=activa)
         except ErrorBolsa as exc:
+            repositorio.cerrar()
             messagebox.showerror("Error al cargar", str(exc))
+            return
+        self.mercado = mercado
+        self._gestor = gestor
+        self.repositorio = repositorio
+        self.servicio = servicio
+        for cartera in self._gestor:
+            cartera.repositorio = repositorio
+        self.mercado.repositorio = repositorio
+        if anterior is not None and anterior is not repositorio:
+            anterior.cerrar()
+        self.actualizar()
+        self.estado.set(f"Cargadas {len(self._gestor)} cartera(s) desde {ruta}")
 
     def exportar(self) -> None:
         from tkinter import filedialog, messagebox

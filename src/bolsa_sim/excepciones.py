@@ -45,6 +45,14 @@ class InstrumentoDuplicado(ErrorBolsa, ValueError):
     """Ya existe un instrumento con ese identificador."""
 
 
+class CarteraDuplicada(ErrorBolsa, ValueError):
+    """Ya existe una cartera con ese propietario."""
+
+
+class CarteraDesconocida(ErrorBolsa, KeyError):
+    """No existe una cartera con ese propietario."""
+
+
 class TipoInstrumentoDesconocido(ErrorBolsa, ValueError):
     """La fabrica no conoce el tipo de instrumento solicitado."""
 
@@ -66,6 +74,8 @@ class ErrorSimulacion(ErrorBolsa, RuntimeError):
 
 
 __all__ = [
+    "CarteraDesconocida",
+    "CarteraDuplicada",
     "DatosInvalidos",
     "ErrorBolsa",
     "ErrorPersistencia",

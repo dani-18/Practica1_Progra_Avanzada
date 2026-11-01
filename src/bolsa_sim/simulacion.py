@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from .estrategias import ContextoMercado
 from .excepciones import DatosInvalidos, ErrorSimulacion
+from .logging_config import obtener_logger
 from .metricas import MetricasInversion, metricas_cartera
 
 if TYPE_CHECKING:
@@ -20,6 +21,8 @@ if TYPE_CHECKING:
     from .estrategias import EstrategiaInversion
     from .mercado import Mercado
     from .operacion import Operacion
+
+log = obtener_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +91,12 @@ class Simulador:
         if not self.cartera.curva_valor:
             self.cartera.anotar_valor(mercado=self.mercado)
         ejecutadas: list[Operacion] = []
+        log.info(
+            "simulacion iniciada: estrategia=%s sesiones=%d cartera=%s",
+            self.estrategia.nombre,
+            self.sesiones,
+            self.cartera.propietario,
+        )
 
         try:
             for _ in range(self.sesiones):
@@ -109,10 +118,11 @@ class Simulador:
                     )
                 self.cartera.anotar_valor(mercado=self.mercado)
         except Exception as exc:
+            log.exception("fallo durante la simulacion (estrategia=%s)", self.estrategia.nombre)
             raise ErrorSimulacion(f"fallo durante la simulacion: {exc}") from exc
 
         curva = self.cartera.curva_valor
-        return ResultadoSimulacion(
+        resultado = ResultadoSimulacion(
             estrategia=self.estrategia.nombre,
             sesiones=self.sesiones,
             valor_inicial=curva[0],
@@ -121,6 +131,13 @@ class Simulador:
             operaciones=tuple(ejecutadas),
             metricas=metricas_cartera(self.cartera, self.mercado),
         )
+        log.info(
+            "simulacion completada: estrategia=%s operaciones=%d rentabilidad=%+.2f%%",
+            resultado.estrategia,
+            resultado.numero_operaciones,
+            resultado.rentabilidad_total * 100,
+        )
+        return resultado
 
     def _ejecutar(self, instrumento_id: str, tipo: str, cantidad: int) -> Operacion | None:
         precio = self.mercado.precio_de(instrumento_id)

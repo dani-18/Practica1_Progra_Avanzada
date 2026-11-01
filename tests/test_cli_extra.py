@@ -166,6 +166,82 @@ def test_repositorio_inyectado_persiste_operaciones() -> None:
     assert sh.cartera.repositorio is repo
 
 
+def test_portfolios_crear_y_cambiar_usuario(shell) -> None:
+    sh, salida = shell
+    sh.ejecutar("portfolios")
+    assert "Dani" in _texto(salida)
+
+    sh.ejecutar("new Ana 2000 2")
+    assert sh.cartera.propietario == "Ana"
+    assert sh.carteras.activa == "Ana"
+    assert sh.cartera.efectivo == 2000.0
+    assert sh.cartera.comision == 2.0
+
+    sh.ejecutar("buy acme 1")
+    assert sh.cartera.posicion("ACME") == 1
+
+    sh.ejecutar("use dani")
+    assert sh.cartera.propietario == "Dani"
+    assert sh.cartera.posicion("ACME") == 0
+
+    sh.ejecutar("portfolios")
+    texto = _texto(salida)
+    assert "* Dani" in texto
+    assert "Ana" in texto
+
+
+def test_portfolios_errores(shell) -> None:
+    sh, salida = shell
+    sh.ejecutar("new")
+    assert "Uso: new" in _texto(salida)
+
+    sh.ejecutar("new Dani")
+    assert "ya existe" in _texto(salida)
+
+    sh.ejecutar("new Pedro malo")
+    assert "efectivo debe ser" in _texto(salida)
+
+    sh.ejecutar("new Pedro 100 malo")
+    assert "comision debe ser" in _texto(salida)
+
+    sh.ejecutar("use Nadie")
+    assert "no encontrada" in _texto(salida)
+
+    sh.ejecutar("use")
+    assert "Cartera activa" in _texto(salida)
+
+
+def test_guardar_y_cargar_varias_carteras(shell, tmp_path) -> None:
+    sh, _salida = shell
+    sh.ejecutar("new Ana 2000 2")
+    sh.ejecutar("buy acme 1")
+    ruta = tmp_path / "varias.sqlite"
+    sh.ejecutar(f"save {ruta}")
+
+    otro_salida: list[str] = []
+    otro = Shell(mercado_demo(), cartera_demo(), salida=otro_salida.append)
+    otro.ejecutar(f"load {ruta} Ana")
+    assert len(otro.carteras) == 2
+    assert otro.cartera.propietario == "Ana"
+    assert otro.cartera.posicion("ACME") == 1
+    otro.ejecutar("use Dani")
+    assert otro.cartera.propietario == "Dani"
+    assert otro.cartera.posicion("ACME") == 0
+    sh.cerrar()
+    otro.cerrar()
+
+
+def test_load_con_usuario_inexistente(shell, tmp_path) -> None:
+    sh, salida = shell
+    ruta = tmp_path / "una.sqlite"
+    sh.ejecutar(f"save {ruta}")
+    otro = Shell(mercado_demo(), cartera_demo(), salida=salida.append)
+    otro.ejecutar(f"load {ruta} Nadie")
+    assert "no encontrada" in _texto(salida)
+    sh.cerrar()
+    otro.cerrar()
+
+
 def test_sparkline() -> None:
     assert _sparkline([]) == ""
     assert len(_sparkline([100.0, 100.0, 100.0])) == 3

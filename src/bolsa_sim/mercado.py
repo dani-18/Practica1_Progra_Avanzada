@@ -26,9 +26,12 @@ from typing import TYPE_CHECKING, Any
 
 from .excepciones import DatosInvalidos, InstrumentoDesconocido, InstrumentoDuplicado
 from .instrumento import InstrumentoBase
+from .logging_config import obtener_logger
 
 if TYPE_CHECKING:
     from .cartera import Cartera
+
+log = obtener_logger(__name__)
 
 
 class Mercado:
@@ -196,6 +199,7 @@ class Mercado:
         self._sesiones.append(snapshot)
         if self._repositorio is not None:
             self._repositorio.guardar_sesion(self.nombre, self._sesion, volumen, dict(nuevos))
+        log.debug("sesion %d completada (volumen=%d)", self._sesion, volumen)
         return nuevos
 
     def avanzar_sesiones(self, sesiones: int, volumen: int = 100) -> list[dict[str, float]]:
@@ -221,6 +225,7 @@ class Mercado:
             inst.aplicar_factor(factor)
             nuevos[inst.id] = float(inst.precio_base)
             self._historial_precios[inst.id].append(float(inst.precio_base))
+        log.info("shock aplicado en %s: %+.2f%%", self.nombre, float(variacion) * 100)
         return nuevos
 
     def rendimiento_sesion(self, instrumento_id: str) -> float | None:

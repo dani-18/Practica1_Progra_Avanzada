@@ -13,6 +13,9 @@
 ## Indice
 
 1. [Que hace el simulador](#1-que-hace-el-simulador)
+   * [1.1 Casos de uso reales](#11-casos-de-uso-reales)
+   * [1.2 Varias carteras y usuarios](#12-varias-carteras-y-usuarios)
+   * [1.3 Alcance y limites](#13-alcance-y-limites)
 2. [Instalacion y ejecucion rapida](#2-instalacion-y-ejecucion-rapida)
 3. [Dominio y jerarquia](#3-dominio-y-jerarquia)
 4. [Uso financiero: mercado, estrategias y metricas](#4-uso-financiero-mercado-estrategias-y-metricas)
@@ -37,11 +40,79 @@ El proyecto modela un pequeno mercado bursatil y permite:
 * calcular rentabilidad total/anualizada, volatilidad, Sharpe, Sortino y max
   drawdown;
 * guardar y recuperar el estado completo en SQLite (o memoria/JSON);
+* gestionar **varias carteras** (un usuario por cartera) y elegir la activa;
 * exportar cartera, operaciones, sesiones y metricas a JSON/CSV;
 * comparar estrategias en paralelo y operar desde CLI o GUI.
 
 La logica de negocio esta separada de la infraestructura. El paquete runtime
 es **solo biblioteca estandar** (`sqlite3`, `tkinter`, `concurrent.futures`...).
+
+### 1.1 Casos de uso reales
+
+El foco del proyecto es el **comportamiento financiero**, no la herramienta que
+lo rodea. Estos son resultados reproducibles (semilla 42 o 7) que se pueden
+repetir con el codigo de [`docs/CASOS_DE_USO.md`](docs/CASOS_DE_USO.md):
+
+| Caso | Resultado real |
+|---|---|
+| Comprar y mantener 120 sesiones (10 000 EUR) | `+2,31 %`, drawdown `1,14 %`, Sharpe `1,95`, 3 operaciones |
+| Crash del 15 % con 20 ACME | `-4,14 %`, drawdown `7,69 %`, volatilidad `10,77 %`, Sharpe `-0,76` |
+| Comparar tres estrategias (120 sesiones) | `comprar_mantener` `+0,78 %`; `momentum` `-6,09 %` y 64 operaciones |
+| Guardar/cargar en SQLite | 49 operaciones y 30 sesiones reconstruidas sin duplicados |
+
+Ejemplo minimo de cartera y metricas:
+
+```python
+from bolsa_sim import ComprarMantener, Simulador
+from bolsa_sim.demo import cartera_demo, mercado_demo
+
+resultado = Simulador(
+    mercado_demo(semilla=42),
+    cartera_demo(efectivo=10_000.0),
+    ComprarMantener(fraccion=0.95),
+    sesiones=120,
+).ejecutar()
+
+print(resultado)             # [comprar_mantener] 120 sesiones ... (+2.31%) ops=3
+print(resultado.metricas)    # rentabilidad, volatilidad, Sharpe, Sortino, drawdown
+```
+
+### 1.2 Varias carteras y usuarios
+
+Cada cartera pertenece a un usuario y mantiene su propio efectivo, posiciones,
+historial y curva de valor. `GestorCarteras` las registra, evita duplicados y
+decide cual es la **cartera activa**:
+
+```python
+from bolsa_sim import GestorCarteras
+from bolsa_sim.demo import cartera_demo, mercado_demo
+
+mercado = mercado_demo(semilla=42)
+gestor = GestorCarteras(cartera_demo())      # Dani
+ana = gestor.crear("Ana", efectivo=2_000.0)  # queda activa
+gestor.seleccionar("Dani")
+gestor.actual.invertir(mercado, "ACME", 2, mercado.precio_de("ACME"), "s0000")
+gestor.seleccionar("Ana")                    # las posiciones de Ana siguen vacias
+print(gestor.nombres())                      # ('Dani', 'Ana')
+```
+
+En la CLI: `portfolios`, `new <usuario>`, `use <usuario>`. En la GUI, el
+desplegable **Usuario** cambia la cartera activa y el boton **Nueva cartera**
+la crea. `save`/`load` persisten y recuperan **todas** las carteras.
+
+### 1.3 Alcance y limites
+
+* Es un **simulador didactico**: los precios son sinteticos (movimiento
+  browniano geometrico) y no se conecta a mercados reales.
+* No es un sistema de trading ni una recomendacion de inversion.
+* La persistencia guarda snapshots de sesion y el estado completo; no esta
+  pensada para series historicas de alta frecuencia.
+* La GUI es una herramienta de demostracion, no un terminal profesional.
+* Las lineas futuras (datos reales, benchmark/alpha, Markowitz) estan en la
+  hoja de ruta, no implementadas.
+
+Separar el alcance evita prometer mas de lo que el codigo hace y mantiene el
+esfuerzo principal en el dominio, que es el objetivo de la asignatura.
 
 ## 2. Instalacion y ejecucion rapida
 
@@ -62,8 +133,25 @@ python -m bolsa_sim --gui           # interfaz grafica Tkinter
 python -m bolsa_sim --simulate --sessions 120 --strategy momentum --seed 42
 python -m bolsa_sim --parallel --sessions 60
 python -m bolsa_sim --export resultados.json
+python -m bolsa_sim --verbose      # logging DEBUG en consola
+python -m bolsa_sim --log-file bolsa.log
 python -m bolsa_sim --version       # bolsa-sim 1.0.0
 ```
+
+### Logging
+
+La biblioteca usa `logging` de la stdlib y **no** escribe nada al importarse.
+La aplicacion configura nivel y destinos:
+
+```bash
+python -m bolsa_sim --verbose                 # DEBUG
+python -m bolsa_sim --quiet                   # solo errores
+python -m bolsa_sim --log-file bolsa.log      # consola + fichero
+BOLSA_LOG_LEVEL=INFO python -m bolsa_sim
+```
+
+Se registran simulaciones, guardados/cargas, shocks y errores de dominio. El
+detalle para desarrolladores esta en [`docs/DESARROLLO.md`](docs/DESARROLLO.md).
 
 Tambien esta el entry point `bolsa-sim`:
 
@@ -214,6 +302,13 @@ servicio.exportar(mercado2, cartera2, "resultados.csv", "csv")
 servicio.cerrar()
 ```
 
+Para varias carteras:
+
+```python
+servicio.guardar_carteras(mercado, [cartera_dani, cartera_ana])
+mercado2, carteras = servicio.cargar_carteras("Bolsa")
+```
+
 Backends: `sqlite` (principal), `memoria` (tests/simulaciones) y `json`
 (fichero portable). El esquema incluye `instrumento`, `cartera`, `posicion`,
 `operacion`, `sesion` y `precio_sesion`; el libro de operaciones es
@@ -261,8 +356,10 @@ python -m bolsa_sim --gui
 ```
 
 La ventana muestra la tabla del mercado, las posiciones, el panel de metricas
-y la curva de valor. Botones: avanzar sesion, shock -10 %, comprar, vender,
-comparar estrategias (concurrente), metricas, guardar/cargar y exportar.
+y la curva de valor. Incluye un desplegable **Usuario** para cambiar de
+cartera y un boton **Nueva cartera** para crear otro usuario. Botones:
+avanzar sesion, shock -10 %, comprar, vender, comparar estrategias
+(concurrente), metricas, guardar/cargar y exportar.
 
 Tkinter se importa de forma perezosa, por lo que el paquete y los tests
 funcionan en entornos sin display (CI). Los helpers de formato y el calculo
@@ -279,7 +376,10 @@ python -m bolsa_sim --cli
 | `help` / `?` | muestra la ayuda |
 | `list` / `ls` | lista instrumentos y precios |
 | `market` | estado del mercado |
-| `portfolio` / `status` | cartera y valor liquidativo |
+| `portfolio` / `status` | cartera activa y valor liquidativo |
+| `portfolios` / `carteras` | lista las carteras y marca la activa |
+| `new <usuario> [efectivo] [comision]` | crea una cartera y la activa |
+| `use <usuario>` | cambia la cartera activa |
 | `price <id>` | precio actual |
 | `buy <id> <cantidad> [precio]` | compra |
 | `sell <id> <cantidad> [precio]` | vende |
@@ -300,6 +400,12 @@ python -m bolsa_sim --cli
 Ejemplo:
 
 ```text
+bolsa> portfolios
+Carteras (2):
+ * Dani             efectivo=   1000.00 EUR  valor=   1000.00 EUR  ops=0
+   Ana              efectivo=   2000.00 EUR  valor=   2000.00 EUR  ops=0
+bolsa> use Ana
+Cartera activa: 'Ana' (efectivo=2000.00 EUR, posiciones=0)
 bolsa> buy acme 2
 Compra ejecutada: Operacion(fecha='s0000', tipo='compra', ...)
 bolsa> next 50
@@ -325,6 +431,7 @@ Estado guardado (RepositorioSQLite).
 | **Inyeccion de dependencias** | `Cartera(..., repositorio=repo)` y `Mercado(..., repositorio=repo)`. |
 | **Template Method** | `InstrumentoBase.mostrar()` y `flujo_anual()` reutilizados por las subclases. |
 | **Value Object** | `Operacion` (`frozen=True, slots=True`). |
+| **Registry / Manager** | `GestorCarteras`: registro de usuarios y cartera activa. |
 
 Decisiones que conviene poder justificar:
 
@@ -346,32 +453,27 @@ Decisiones que conviene poder justificar:
 ## 10. Pruebas y calidad
 
 ```bash
-python -m pytest -q                        # 221 tests
+python -m pytest -q                        # 245 tests
 python -m pytest --cov=bolsa_sim           # cobertura ~94 %
 python -m pytest --cov=bolsa_sim --cov-fail-under=70
 python -m black --check src tests
 python -m ruff check src tests
 ```
 
-Estado actual:
+Estado actual: **245 tests**, **93,77 %** de cobertura.
 
-```text
-221 passed
-TOTAL 94 % coverage
-```
-
-La cobertura elevada no sustituye a los escenarios de negocio: los tests
-incluyen casos limite de validacion, operaciones invalidas, fondos/posiciones
-insuficientes, shocks extremos, series vacias/planas, persistencia SQLite en
-memoria y fichero, JSON corrupto, exportacion, concurrencia y GUI (cuando hay
-display). CI ejecuta Black, Ruff y pytest con `--cov-fail-under=70` en Python
-3.10-3.13, y genera la API con `pdoc`.
+Los tests cubren casos limite de validacion, operaciones invalidas,
+fondos/posiciones insuficientes, shocks extremos, series vacias/planas,
+persistencia SQLite, JSON corrupto, exportacion, concurrencia, logging y GUI.
+CI ejecuta Black, Ruff y pytest con `--cov-fail-under=70` en Python 3.10-3.13.
+El detalle de comandos y convenciones esta en
+[`docs/DESARROLLO.md`](docs/DESARROLLO.md).
 
 ## 11. Estructura del repositorio
 
 ```text
 Practica_Progra_Avanzada/
-|-- .github/workflows/ci.yml       CI: Black + Ruff + pytest/coverage + pdoc
+|-- .github/workflows/ci.yml       CI + publicacion de API en GitHub Pages
 |-- .pre-commit-config.yaml        hooks locales
 |-- CHANGELOG.md
 |-- LICENSE                        MIT
@@ -379,17 +481,21 @@ Practica_Progra_Avanzada/
 |-- pyproject.toml                 metadata, Black/Ruff/pytest/coverage
 |-- docs/
 |   |-- ARQUITECTURA.md            diseno, patrones, formulas, decisiones
-|   `-- api/                       API generada por pdoc (artefacto CI)
+|   |-- CASOS_DE_USO.md            escenarios financieros con salidas reales
+|   |-- DESARROLLO.md              guia de desarrollo, logging, CI y entrega
+|   `-- api/                       API generada por pdoc y publicada en Pages
 |-- src/bolsa_sim/
 |   |-- __init__.py                API publica y version 1.0.0
-|   |-- __main__.py                flags --demo/--cli/--gui/--simulate/--parallel/--export
+|   |-- __main__.py                flags --demo/--cli/--gui/--simulate/--parallel/--export/--log-file
 |   |-- instrumento.py             InstrumentoBase
 |   |-- accion.py / bono.py / etf.py
 |   |-- operacion.py               value object append-only
 |   |-- cartera.py                 efectivo, posiciones, historial, curva
 |   |-- mercado.py                 GBM, shocks, historial de precios
 |   |-- fabrica.py                 FabricaInstrumentos + serializacion
+|   |-- gestor_carteras.py         varias carteras + cartera activa
 |   |-- excepciones.py             jerarquia ErrorBolsa
+|   |-- logging_config.py          logging stdlib configurable
 |   |-- metricas.py                rentabilidad, riesgo, Sharpe, Sortino
 |   |-- estrategias.py             Strategy + fabrica de estrategias
 |   |-- simulacion.py              Simulador + ResultadoSimulacion
@@ -397,6 +503,7 @@ Practica_Progra_Avanzada/
 |   |-- cli.py                     Shell interactiva
 |   |-- gui.py                     GUI Tkinter (import perezoso)
 |   |-- demo.py                    escenario de ejemplo reutilizable
+|   |-- py.typed                   marcador PEP 561
 |   `-- persistencia/
 |       |-- __init__.py            API publica
 |       |-- db.py                  conexion, PRAGMAs, transacciones, version
@@ -405,14 +512,18 @@ Practica_Progra_Avanzada/
 |       |-- fabrica.py             RepositorioFactory (Factory)
 |       |-- servicio.py            guardar/cargar estado completo
 |       `-- exportadores.py        JSON / CSV (Strategy)
-`-- tests/                         221 tests
+`-- tests/                         245 tests
 ```
 
 ## 12. Documentacion y roadmap
 
 * `README.md` (este documento) y `CHANGELOG.md`.
+* [`docs/CASOS_DE_USO.md`](docs/CASOS_DE_USO.md): escenarios financieros con
+  salidas reales (comprar y mantener, crash, comparacion, persistencia).
 * [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md): patrones, formulas,
   persistencia, concurrencia y decisiones.
+* [`docs/DESARROLLO.md`](docs/DESARROLLO.md): entorno, tests, logging, CI y
+  checklist de entrega.
 * API automatica con `pdoc`:
 
 ```bash
@@ -420,8 +531,14 @@ python -m pip install -e ".[docs]"
 python -m pdoc bolsa_sim -o docs/api --docformat google
 ```
 
-El job `build-docs` de GitHub Actions genera `docs/api` en cada push y lo
-publica como artefacto, de modo que la documentacion evoluciona con el codigo.
+CI genera `docs/api` en cada push y, desde `main`, la **publica en GitHub
+Pages** con `actions/deploy-pages`:
+
+<https://dani-18.github.io/Practica1_Progra_Avanzada/>
+
+Asi la API evoluciona con el codigo y no depende de capturas manuales. Si se
+quiere publicar en otro repositorio, basta ajustar el remoto y activar Pages
+con origen **GitHub Actions**.
 
 **Estado del roadmap**: PRAC1, PRAC2, PRAC3 y PRAC4 completadas. Lineas
 futuras: mas estrategias (valor, pares, Markowitz), datos reales de mercado,

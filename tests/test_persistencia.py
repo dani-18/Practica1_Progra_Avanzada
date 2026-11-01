@@ -256,3 +256,35 @@ def test_servicio_exportar(tmp_path) -> None:
     servicio = ServicioPersistencia(RepositorioMemoria())
     destino = servicio.exportar(mercado, cartera, tmp_path / "res.json")
     assert destino.exists()
+
+
+def test_servicio_guarda_y_carga_varias_carteras(tmp_path) -> None:
+    mercado = mercado_demo(semilla=11)
+    dani = cartera_demo()
+    ana = Cartera("Ana", efectivo=2_000.0, comision=2.0)
+    for _ in range(3):
+        mercado.avanzar_sesion(10)
+    dani.comprar(mercado, "ACME", 2, fecha="s0001")
+    ana.comprar(mercado, "BONO10", 3, fecha="s0001")
+    dani.anotar_valor(mercado=mercado)
+    ana.anotar_valor(mercado=mercado)
+
+    repo = RepositorioFactory.crear("sqlite", tmp_path / "varias.sqlite")
+    servicio = ServicioPersistencia(repo)
+    servicio.guardar_carteras(mercado, [dani, ana])
+
+    mercado2, carteras = servicio.cargar_carteras(mercado.nombre)
+    por_nombre = {c.propietario: c for c in carteras}
+    assert set(por_nombre) == {"Dani", "Ana"}
+    assert por_nombre["Dani"].posicion("ACME") == 2
+    assert por_nombre["Ana"].posicion("BONO10") == 3
+    assert por_nombre["Ana"].efectivo == pytest.approx(ana.efectivo)
+    assert len(por_nombre["Ana"].historial) == 1
+    assert mercado2.sesion == 3
+    servicio.cerrar()
+
+
+def test_servicio_rechaza_guardar_sin_carteras() -> None:
+    servicio = ServicioPersistencia(RepositorioMemoria())
+    with pytest.raises(ErrorPersistencia):
+        servicio.guardar_carteras(mercado_demo(), [])

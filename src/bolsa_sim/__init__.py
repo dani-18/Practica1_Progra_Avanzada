@@ -34,6 +34,8 @@ from .estrategias import (
 )
 from .etf import ETF
 from .excepciones import (
+    CarteraDesconocida,
+    CarteraDuplicada,
     DatosInvalidos,
     ErrorBolsa,
     ErrorPersistencia,
@@ -48,7 +50,9 @@ from .excepciones import (
     TipoInstrumentoDesconocido,
 )
 from .fabrica import FabricaInstrumentos
+from .gestor_carteras import GestorCarteras
 from .instrumento import InstrumentoBase
+from .logging_config import configurar_logging, obtener_logger
 from .mercado import Mercado
 from .metricas import (
     MetricasInversion,
@@ -68,6 +72,8 @@ __all__ = [
     "Accion",
     "Bono",
     "Cartera",
+    "CarteraDesconocida",
+    "CarteraDuplicada",
     "ComprarMantener",
     "ContextoMercado",
     "DatosInvalidos",
@@ -81,6 +87,7 @@ __all__ = [
     "FabricaInstrumentos",
     "FondosInsuficientes",
     "FormatoNoSoportado",
+    "GestorCarteras",
     "InstrumentoBase",
     "InstrumentoDesconocido",
     "InstrumentoDuplicado",
@@ -98,6 +105,7 @@ __all__ = [
     "TipoInstrumentoDesconocido",
     "calcular_metricas",
     "comparar_estrategias",
+    "configurar_logging",
     "crear_estrategia",
     "ejecutar_escenario",
     "ejecutar_escenarios",
@@ -105,6 +113,7 @@ __all__ = [
     "estrategias_disponibles",
     "max_drawdown",
     "metricas_cartera",
+    "obtener_logger",
     "ratio_sharpe",
     "rentabilidad_anualizada",
     "rentabilidad_total",

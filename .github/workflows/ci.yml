@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality-and-tests:
     runs-on: ubuntu-latest
@@ -63,8 +70,27 @@ jobs:
           python -m pip install -e ".[docs]"
       - name: Generate API docs (pdoc)
         run: python -m pdoc bolsa_sim -o docs/api --docformat google
-      - name: Upload API docs
-        uses: actions/upload-artifact@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: api-docs
           path: docs/api
+
+  deploy-docs:
+    # Publica la API en GitHub Pages solo desde main (los PR solo construyen).
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-docs
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: Deploy API docs
+        id: deployment
+        uses: actions/deploy-pages@v4
