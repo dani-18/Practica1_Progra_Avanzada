@@ -39,6 +39,8 @@ inverso. Sigue "Keep a Changelog".
 - README reequilibrado hacia el comportamiento financiero: casos de uso y
   resultados reales antes que infraestructura; los detalles de desarrollo se
   mueven a `docs/DESARROLLO.md`.
+- Cada avance de sesion anota el valor de **todas** las carteras, para que sus
+  metricas y curvas sean comparables al cambiar de usuario.
 - Tests: **221 -> 245** (logging, gestor de carteras, CLI/GUI y persistencia
   multiple).
 

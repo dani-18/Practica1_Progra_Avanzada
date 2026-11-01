@@ -357,11 +357,14 @@ class AplicacionGUI:
             return
         if self.repositorio is not None:
             cartera.repositorio = self.repositorio
+        cartera.anotar_valor(mercado=self.mercado)
         self.actualizar()
         self.estado.set(f"Cartera creada y activa: {cartera.propietario}")
 
     def avanzar_sesion(self) -> None:
         self.mercado.avanzar_sesion(100)
+        for cartera in self._gestor:
+            cartera.anotar_valor(mercado=self.mercado)
         self.actualizar()
 
     def aplicar_shock(self, variacion: float) -> None:

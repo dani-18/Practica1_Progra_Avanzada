@@ -243,6 +243,7 @@ class Shell:
             return True
         if self.repositorio is not None:
             cartera.repositorio = self.repositorio
+        cartera.anotar_valor(mercado=self.mercado)
         self._salida(
             f"Cartera creada y activa: {cartera.propietario!r} "
             f"(efectivo={cartera.efectivo:.2f} EUR, comision={cartera.comision:.2f})"
@@ -327,6 +328,8 @@ class Shell:
             self._salida("volumen debe ser un entero > 0")
             return True
         nuevos = self.mercado.avanzar_sesion(volumen)
+        for cartera in self._gestor:
+            cartera.anotar_valor(mercado=self.mercado)
         resumen = "  ".join(f"{tid}={precio:.2f}" for tid, precio in nuevos.items())
         self._salida(f"Sesion {self.mercado.sesion}: {resumen}")
         return True

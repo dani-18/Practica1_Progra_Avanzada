@@ -460,7 +460,7 @@ python -m black --check src tests
 python -m ruff check src tests
 ```
 
-Estado actual: **245 tests**, **93,77 %** de cobertura.
+Estado actual: **245 tests**, **93,88 %** de cobertura.
 
 Los tests cubren casos limite de validacion, operaciones invalidas,
 fondos/posiciones insuficientes, shocks extremos, series vacias/planas,
