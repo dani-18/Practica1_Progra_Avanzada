@@ -69,17 +69,12 @@ class ErrorPersistencia(ErrorBolsa, RuntimeError):
     """Fallo al leer o escribir en el almacen de datos."""
 
 
-class ErrorSimulacion(ErrorBolsa, RuntimeError):
-    """La simulacion no pudo completarse."""
-
-
 __all__ = [
     "CarteraDesconocida",
     "CarteraDuplicada",
     "DatosInvalidos",
     "ErrorBolsa",
     "ErrorPersistencia",
-    "ErrorSimulacion",
     "EstrategiaDesconocida",
     "FondosInsuficientes",
     "FormatoNoSoportado",

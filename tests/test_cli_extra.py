@@ -36,42 +36,13 @@ def test_metrics(shell) -> None:
     assert "sharpe" in texto
 
 
-def test_strategies_y_strategy(shell) -> None:
+def test_strategies(shell) -> None:
     sh, salida = shell
     sh.ejecutar("strategies")
-    assert "comprar_mantener" in _texto(salida)
-    sh.ejecutar("strategy momentum ventana=3")
-    assert sh.estrategia.nombre == "momentum"
-    sh.ejecutar("strategy")
-    assert "Estrategia actual" in _texto(salida)
-    sh.ejecutar("strategy nope")
-    assert "Error:" in _texto(salida)
-
-
-def test_simulate(shell) -> None:
-    sh, salida = shell
-    sh.ejecutar("simulate 5 momentum")
     texto = _texto(salida)
-    assert "[momentum]" in texto
-    assert "rentabilidad" in texto
-    sh.ejecutar("simulate 3")
-    assert "sesiones" in _texto(salida)
-    sh.ejecutar("simulate 0")
-    assert "sesiones debe ser un entero > 0" in _texto(salida)
-    sh.ejecutar("simulate 5 nope")
-    assert "Error:" in _texto(salida)
-
-
-def test_parallel(shell) -> None:
-    sh, salida = shell
-    sh.ejecutar("parallel 5")
-    texto = _texto(salida)
-    assert "Comparacion en paralelo" in texto
+    assert "comprar_mantener" in texto
     assert "momentum" in texto
-    sh.ejecutar("parallel abc")
-    assert "sesiones debe ser un entero > 0" in _texto(salida)
-    sh.ejecutar("parallel 0")
-    assert "sesiones debe ser un entero > 0" in _texto(salida)
+    assert "rebalanceo" in texto
 
 
 def test_shock_y_chart(shell) -> None:

@@ -6,8 +6,7 @@ Se lanza con::
 
 y ofrece una consola para operar el mercado: listar instrumentos, consultar
 precios, comprar/vender, avanzar sesiones, ver cartera e historial, calcular
-metricas, simular estrategias, comparar escenarios en paralelo, aplicar
-shocks y guardar/cargar el estado en SQLite.
+metricas, aplicar shocks y guardar/cargar el estado en SQLite.
 
 El procesamiento de cada linea esta separado de la lectura por teclado
 (``Shell.ejecutar`` recibe una cadena y devuelve si hay que continuar),
@@ -22,14 +21,8 @@ from collections.abc import Callable
 from typing import Any
 
 from .cartera import Cartera
-from .concurrencia import comparar_estrategias
 from .demo import cartera_demo, mercado_demo
-from .estrategias import (
-    ESTRATEGIAS,
-    EstrategiaInversion,
-    crear_estrategia,
-    estrategia_desde_pares,
-)
+from .estrategias import ESTRATEGIAS
 from .excepciones import ErrorBolsa
 from .gestor_carteras import GestorCarteras
 from .logging_config import obtener_logger
@@ -38,7 +31,6 @@ from .metricas import metricas_cartera
 from .persistencia.exportadores import exportar_resultados, formatos_disponibles
 from .persistencia.fabrica import RepositorioFactory
 from .persistencia.servicio import ServicioPersistencia
-from .simulacion import Simulador
 
 log = obtener_logger(__name__)
 
@@ -54,7 +46,6 @@ class Shell:
         entrada: Callable[[str], str] = input,
         salida: Callable[[str], None] = print,
         repositorio: Any | None = None,
-        estrategia: EstrategiaInversion | None = None,
     ) -> None:
         self.mercado = mercado if mercado is not None else mercado_demo()
         self._gestor = GestorCarteras(cartera if cartera is not None else cartera_demo())
@@ -64,7 +55,6 @@ class Shell:
         self.servicio = ServicioPersistencia(repositorio) if repositorio else None
         if repositorio is not None:
             self.cartera.repositorio = repositorio
-        self.estrategia = estrategia or crear_estrategia("comprar_mantener")
         # Mapa comando -> metodo (los alias apuntan al mismo metodo).
         self._comandos: dict[str, Callable[[list[str]], bool]] = {
             "help": self._cmd_help,
@@ -81,9 +71,6 @@ class Shell:
             "history": self._cmd_history,
             "metrics": self._cmd_metrics,
             "strategies": self._cmd_strategies,
-            "strategy": self._cmd_strategy,
-            "simulate": self._cmd_simulate,
-            "parallel": self._cmd_parallel,
             "shock": self._cmd_shock,
             "chart": self._cmd_chart,
             "export": self._cmd_export,
@@ -178,9 +165,6 @@ class Shell:
         self._salida("  metrics                      metricas de rentabilidad y riesgo")
         self._salida("  chart <instrumento>          grafico ASCII de precios")
         self._salida("  strategies                   lista estrategias disponibles")
-        self._salida("  strategy <nombre> [k=v...]   fija la estrategia de simulacion")
-        self._salida("  simulate [n] [estrategia]    simula n sesiones y muestra metricas")
-        self._salida("  parallel [n]                 compara todas las estrategias en paralelo")
         self._salida("  export <json|csv> <ruta>     exporta resultados")
         self._salida("  save [ruta]                  guarda todas las carteras en SQLite")
         self._salida("  load <ruta> [propietario]    carga el estado y elige la cartera activa")
@@ -355,67 +339,6 @@ class Shell:
         self._salida("Estrategias disponibles:")
         for nombre in sorted(ESTRATEGIAS):
             self._salida(f"  {nombre:<18} {ESTRATEGIAS[nombre].descripcion}")
-        return True
-
-    def _cmd_strategy(self, args: list[str]) -> bool:
-        if not args:
-            self._salida(
-                f"Estrategia actual: {self.estrategia.nombre}. Uso: strategy <nombre> [k=v...]"
-            )
-            return True
-        self.estrategia = estrategia_desde_pares(args[0], args[1:])
-        self._salida(f"Estrategia fijada: {self.estrategia.nombre}")
-        return True
-
-    def _cmd_simulate(self, args: list[str]) -> bool:
-        sesiones = 60
-        nombre = self.estrategia.nombre
-        parametros: list[str] = []
-        if args:
-            if args[0].isdigit():
-                sesiones = int(args[0])
-                if len(args) > 1:
-                    nombre = args[1]
-                    parametros = args[2:]
-            else:
-                nombre = args[0]
-                parametros = args[1:]
-        if sesiones <= 0:
-            self._salida("sesiones debe ser un entero > 0")
-            return True
-        estrategia = estrategia_desde_pares(nombre, parametros)
-        semilla = self.mercado.semilla if self.mercado.semilla is not None else 42
-        mercado = mercado_demo(semilla=semilla)
-        cartera = cartera_demo()
-        resultado = Simulador(
-            mercado, cartera, estrategia, sesiones=sesiones, volumen=100
-        ).ejecutar()
-        self._salida(str(resultado))
-        self._salida(str(resultado.metricas))
-        return True
-
-    def _cmd_parallel(self, args: list[str]) -> bool:
-        sesiones = 60
-        if args:
-            try:
-                sesiones = int(args[0])
-            except ValueError:
-                self._salida("sesiones debe ser un entero > 0")
-                return True
-        if sesiones <= 0:
-            self._salida("sesiones debe ser un entero > 0")
-            return True
-        semilla = self.mercado.semilla if self.mercado.semilla is not None else 42
-        resultados = comparar_estrategias(semilla=semilla, sesiones=sesiones)
-        self._salida(f"Comparacion en paralelo (semilla {semilla}, {sesiones} sesiones):")
-        for item in resultados:
-            self._salida(
-                f"  {item.escenario.estrategia:<18} "
-                f"valor={item.resultado.valor_final:>10.2f} EUR  "
-                f"rent={item.resultado.rentabilidad_total:>8.2%}  "
-                f"sharpe={item.resultado.metricas.ratio_sharpe:>6.2f}  "
-                f"ops={item.resultado.numero_operaciones}"
-            )
         return True
 
     def _cmd_shock(self, args: list[str]) -> bool:

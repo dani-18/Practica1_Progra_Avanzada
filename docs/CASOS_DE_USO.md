@@ -10,20 +10,20 @@ Objetivo: invertir 10 000 EUR en la jerarquía Acción/Bono/ETF y medir el
 resultado tras 120 sesiones.
 
 ```python
-from bolsa_sim import ComprarMantener, Simulador
-from bolsa_sim.demo import cartera_demo, mercado_demo
+from bolsa_sim import Cartera, metricas_cartera
+from bolsa_sim.demo import mercado_demo
 
 mercado = mercado_demo(semilla=42)
-cartera = cartera_demo(efectivo=10_000.0)
-resultado = Simulador(
-    mercado,
-    cartera,
-    ComprarMantener(fraccion=0.95),
-    sesiones=120,
-).ejecutar()
+cartera = Cartera("Dani", efectivo=10_000.0, comision=1.0)
+for instrumento_id, cantidad in (("ACME", 26), ("BONO10", 31), ("SP500", 7)):
+    cartera.comprar(mercado, instrumento_id, cantidad)
 
-print(resultado)
-print(resultado.metricas)
+cartera.anotar_valor(mercado=mercado)
+for _ in range(120):
+    mercado.avanzar_sesion(100)
+    cartera.anotar_valor(mercado=mercado)
+
+print(metricas_cartera(cartera, mercado))
 print("posiciones:", cartera.posiciones)
 print("efectivo:", round(cartera.efectivo, 2))
 ```
@@ -31,18 +31,17 @@ print("efectivo:", round(cartera.efectivo, 2))
 Salida real:
 
 ```text
-[comprar_mantener] 120 sesiones  valor 10000.00 -> 10230.90 EUR  (+2.31%)  ops=3
-rentabilidad=+2.31%  anualizada=+4.91%  volatilidad=2.48%  max_drawdown=1.14%  sharpe=1.95  sortino=3.16
+rentabilidad=+2.28%  anualizada=+4.80%  volatilidad=2.47%  max_drawdown=1.14%  sharpe=1.91  sortino=3.10
 posiciones: (('ACME', 26), ('BONO10', 31), ('SP500', 7))
-efectivo: 980.27
+efectivo: 977.0
 ```
 
 Lectura financiera:
 
-* la estrategia reparte el 95 % del capital entre los tres instrumentos y
-  reserva liquidez para comisiones;
-* la cartera termina con **+2,31 %** y un drawdown máximo de solo **1,14 %**;
-* el Sharpe de **1,95** indica que el retorno compensa la volatilidad asumida
+* la cartera reparte el capital entre los tres instrumentos y reserva
+  liquidez para comisiones;
+* la cartera termina con **+2,28 %** y un drawdown máximo de solo **1,14 %**;
+* el Sharpe de **1,91** indica que el retorno compensa la volatilidad asumida
   en este escenario.
 
 ## Caso 2 — Crash del 15 % y recuperación
@@ -97,49 +96,25 @@ Lectura financiera:
 * la volatilidad anualizada sube al **10,77 %** y el Sharpe se vuelve
   negativo: el riesgo asumido no compensó en este escenario.
 
-## Caso 3 — Comparar estrategias en paralelo
-
-Objetivo: ejecutar tres estrategias sobre el mismo mercado y comparar
-resultados sin estado compartido.
-
-```python
-from bolsa_sim import comparar_estrategias
-
-for item in comparar_estrategias(semilla=42, sesiones=120):
-    print(item.escenario.estrategia, item.resultado)
-```
-
-Salida real:
-
-```text
-comprar_mantener   [comprar_mantener] 120 sesiones  valor 1000.00 -> 1007.76 EUR  (+0.78%)  ops=2
-momentum           [momentum] 120 sesiones  valor 1000.00 -> 939.05 EUR  (-6.09%)  ops=64
-rebalanceo         [rebalanceo] 120 sesiones  valor 1000.00 -> 1007.76 EUR  (+0.78%)  ops=2
-```
-
-Lectura financiera:
-
-* `momentum` genera **64 operaciones** y pierde un 6,09 %: en un mercado sin
-  tendencia clara, el ruido y las comisiones penalizan la estrategia;
-* `comprar_mantener` y `rebalanceo` apenas operan y conservan el capital;
-* la semilla hace que la comparación sea reproducible.
-
-## Caso 4 — Guardar, recuperar y exportar
+## Caso 3 — Guardar, recuperar y exportar
 
 Objetivo: cerrar el ciclo de persistencia real (SQLite) y exportación.
 
 ```python
-from bolsa_sim import Momentum, Simulador
 from bolsa_sim.demo import cartera_demo, mercado_demo
 from bolsa_sim.persistencia import (
     RepositorioFactory,
     ServicioPersistencia,
-    exportar_simulacion,
+    exportar_resultados,
 )
 
 mercado = mercado_demo(semilla=7)
 cartera = cartera_demo(efectivo=5_000.0)
-resultado = Simulador(mercado, cartera, Momentum(ventana=5), sesiones=30).ejecutar()
+for _ in range(30):
+    mercado.avanzar_sesion(100)
+    cartera.anotar_valor(mercado=mercado)
+cartera.comprar(mercado, "ACME", 2)
+cartera.anotar_valor(mercado=mercado)
 
 repo = RepositorioFactory.crear("sqlite", "datos.sqlite")
 servicio = ServicioPersistencia(repo)
@@ -149,22 +124,22 @@ mercado2, cartera2 = servicio.cargar_estado(mercado.nombre, cartera.propietario)
 print(len(cartera.historial), "->", len(cartera2.historial))
 print(mercado.sesion, "->", mercado2.sesion)
 
-exportar_simulacion(resultado, "simulacion.json")
+exportar_resultados(mercado, cartera, "resultados.json", "json")
 servicio.cerrar()
 ```
 
 Salida real (resumida):
 
 ```text
-49 -> 49
+1 -> 1
 30 -> 30
 ```
 
-Las 49 operaciones, las 30 sesiones, el efectivo y las posiciones se
-reconstruyen desde SQLite. El libro de operaciones es *append-only*: guardar
-dos veces el mismo estado no duplica operaciones.
+La operación, las 30 sesiones, el efectivo y las posiciones se reconstruyen
+desde SQLite. El libro de operaciones es *append-only*: guardar dos veces el
+mismo estado no duplica operaciones.
 
-## Caso 5 — Varias carteras y cambio de usuario
+## Caso 4 — Varias carteras y cambio de usuario
 
 Objetivo: operar con dos usuarios sin mezclar posiciones.
 
@@ -200,7 +175,7 @@ En la CLI equivaldria a `new Ana 2000 2`, `use Dani` y `portfolios`. Al
 guardar con `save`, SQLite conserva **las dos carteras** y `load` recupera
 ambas, seleccionando la que se indique.
 
-## Caso 6 — Polimorfismo en el dominio
+## Caso 5 — Polimorfismo en el dominio
 
 El mismo método se comporta distinto según el tipo concreto:
 

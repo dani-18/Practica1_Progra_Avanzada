@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bolsa-sim"
 version = "1.0.0"
-description = "Simulador de Bolsa y Carteras (PRAC1-PRAC4: patrones, SQLite, GUI y concurrencia)."
+description = "Simulador de Bolsa y Carteras (PRAC1-PRAC4: patrones, SQLite y GUI)."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"

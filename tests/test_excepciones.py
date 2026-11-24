@@ -8,7 +8,6 @@ from bolsa_sim.excepciones import (
     DatosInvalidos,
     ErrorBolsa,
     ErrorPersistencia,
-    ErrorSimulacion,
     EstrategiaDesconocida,
     FondosInsuficientes,
     FormatoNoSoportado,
@@ -24,7 +23,6 @@ def test_todas_heredan_de_error_bolsa() -> None:
     for clase in (
         DatosInvalidos,
         ErrorPersistencia,
-        ErrorSimulacion,
         EstrategiaDesconocida,
         FondosInsuficientes,
         FormatoNoSoportado,

@@ -114,16 +114,14 @@ def test_gui_errores_de_compra(ventana) -> None:
     assert "Error:" in app.estado.get()
 
 
-def test_gui_metricas_y_simulacion(ventana) -> None:
+def test_gui_metricas(ventana) -> None:
     app, _, monkeypatch = ventana
     import tkinter.messagebox as messagebox
 
     mensajes: list[str] = []
     monkeypatch.setattr(messagebox, "showinfo", lambda titulo, texto: mensajes.append(titulo))
     app.mostrar_metricas()
-    app.simular()
     assert "Metricas de la cartera" in mensajes
-    assert "Comparacion de estrategias (60 sesiones)" in mensajes
 
 
 def test_gui_guardar_cargar_exportar(ventana, tmp_path) -> None:

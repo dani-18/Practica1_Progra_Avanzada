@@ -23,7 +23,6 @@ from ..metricas import metricas_cartera
 if TYPE_CHECKING:
     from ..cartera import Cartera
     from ..mercado import Mercado
-    from ..simulacion import ResultadoSimulacion
 
 CABECERA_CSV: tuple[str, ...] = (
     "registro",
@@ -222,22 +221,6 @@ def exportar_resultados(
     return crear_exportador(formato).exportar(datos, ruta)
 
 
-def exportar_simulacion(
-    resultado: ResultadoSimulacion,
-    ruta: str | Path,
-) -> Path:
-    """Exporta el resultado de una simulacion a JSON."""
-    destino = Path(ruta)
-    if not destino.suffix:
-        destino = destino.with_suffix(".json")
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    destino.write_text(
-        json.dumps(resultado.a_dict(), indent=2, ensure_ascii=False, default=str),
-        encoding="utf-8",
-    )
-    return destino
-
-
 __all__ = [
     "CABECERA_CSV",
     "EXPORTADORES",
@@ -247,6 +230,5 @@ __all__ = [
     "crear_exportador",
     "datos_exportacion",
     "exportar_resultados",
-    "exportar_simulacion",
     "formatos_disponibles",
 ]

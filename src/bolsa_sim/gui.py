@@ -179,7 +179,6 @@ class AplicacionGUI:
             ("Shock -10%", lambda: self.aplicar_shock(-0.10)),
             ("Comprar", self.comprar),
             ("Vender", self.vender),
-            ("Simular", self.simular),
         ):
             ttk.Button(botones, text=texto, command=accion).pack(side="left", padx=2)
 
@@ -411,22 +410,6 @@ class AplicacionGUI:
 
         metricas = metricas_cartera(self.cartera, self.mercado)
         messagebox.showinfo("Metricas de la cartera", str(metricas))
-
-    def simular(self) -> None:
-        from tkinter import messagebox
-
-        from .concurrencia import comparar_estrategias
-
-        resultados = comparar_estrategias(
-            semilla=self.mercado.semilla if self.mercado.semilla is not None else 42,
-            sesiones=60,
-        )
-        texto = "\n".join(
-            f"{r.escenario.estrategia}: {r.resultado.rentabilidad_total:+.2%} "
-            f"(Sharpe {r.resultado.metricas.ratio_sharpe:.2f})"
-            for r in resultados
-        )
-        messagebox.showinfo("Comparacion de estrategias (60 sesiones)", texto)
 
     def guardar(self) -> None:
         from tkinter import filedialog

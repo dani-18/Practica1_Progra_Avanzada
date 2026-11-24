@@ -62,7 +62,6 @@ def test_obtener_logger_cuelga_del_paquete() -> None:
 
 def test_cli_guarda_log_en_fichero(tmp_path) -> None:
     ruta = tmp_path / "cli.log"
-    assert cli(["--simulate", "--sessions", "3", "--log-file", str(ruta)]) == 0
+    assert cli(["--demo", "--log-file", str(ruta)]) == 0
     contenido = ruta.read_text(encoding="utf-8")
-    assert "simulacion iniciada" in contenido
-    assert "simulacion completada" in contenido
+    assert "demo completada" in contenido

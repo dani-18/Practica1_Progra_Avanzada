@@ -62,7 +62,7 @@ Qué se registra:
 
 | Nivel | Evento |
 |---|---|
-| `INFO` | simulación iniciada/completada, estado guardado/cargado, shock aplicado |
+| `INFO` | estado guardado/cargado, shock aplicado, demo completada |
 | `DEBUG` | sesiones del mercado, argumentos y comandos de la CLI |
 | `WARNING` | entradas o comandos no válidos de la CLI |
 | `ERROR` | errores de dominio/persistencia antes de propagar la excepción |
@@ -77,8 +77,8 @@ los que haya configurado la aplicación anfitriona. El logger raíz es
 * Tipos con `from __future__ import annotations`; `py.typed` incluido.
 * Excepciones de dominio en `excepciones.py`, compatibles con
   `ValueError`/`KeyError`/`RuntimeError`.
-* Estrategias puras: `decidir(contexto)` devuelve `Decision`; `Simulador`
-  ejecuta. No compartir estado mutable entre escenarios concurrentes.
+* Estrategias puras: `decidir(contexto)` devuelve `Decision`; no comparten
+  estado mutable.
 * Persistencia detrás de `Repositorio`; los tests usan `memoria` o SQLite
   `:memory:`.
 

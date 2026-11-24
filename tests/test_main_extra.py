@@ -6,21 +6,9 @@ import json
 
 import pytest
 
+import bolsa_sim.__main__ as entrypoint
 from bolsa_sim.__main__ import cli
-
-
-def test_simular_desde_cli(capsys) -> None:
-    assert cli(["--simulate", "--sessions", "5", "--strategy", "momentum"]) == 0
-    salida = capsys.readouterr().out
-    assert "[momentum]" in salida
-    assert "rentabilidad" in salida
-
-
-def test_paralelo_desde_cli(capsys) -> None:
-    assert cli(["--parallel", "--sessions", "5"]) == 0
-    salida = capsys.readouterr().out
-    assert "Comparacion concurrente" in salida
-    assert "comprar_mantener" in salida
+from bolsa_sim.excepciones import DatosInvalidos
 
 
 def test_exportar_desde_cli(tmp_path) -> None:
@@ -38,13 +26,12 @@ def test_exportar_csv_desde_cli(tmp_path) -> None:
     assert destino.read_text(encoding="utf-8").startswith("registro,")
 
 
-def test_drift_en_simulacion(capsys) -> None:
-    assert cli(["--simulate", "--sessions", "3", "--drift", "0.01"]) == 0
-    assert "sesiones" in capsys.readouterr().out
+def test_error_de_dominio_devuelve_codigo_1(monkeypatch, tmp_path, capsys) -> None:
+    def falla(*_args, **_kwargs):
+        raise DatosInvalidos("fallo controlado")
 
-
-def test_error_de_dominio_devuelve_codigo_1(capsys) -> None:
-    assert cli(["--simulate", "--sessions", "0"]) == 1
+    monkeypatch.setattr(entrypoint, "exportar_resultados", falla)
+    assert cli(["--export", str(tmp_path / "demo.json")]) == 1
     assert "Error:" in capsys.readouterr().out
 
 

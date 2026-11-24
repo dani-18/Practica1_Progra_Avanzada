@@ -1,9 +1,8 @@
 """Estrategias de inversion (patron **Strategy**) y su fabrica.
 
 Una estrategia no ejecuta ordenes: **decide** que haria en el contexto
-actual y devuelve una lista de :class:`Decision`. El simulador es quien
-las ejecuta contra la cartera. Esa separacion hace las estrategias puras,
-testeables y faciles de combinar con la concurrencia.
+actual y devuelve una lista de :class:`Decision`. Esa separacion hace las
+estrategias puras, testeables e independientes del almacen y de la interfaz.
 
 Estrategias incluidas:
 

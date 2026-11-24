@@ -4,7 +4,24 @@ Todos los cambios relevantes del proyecto, en orden cronologico
 inverso. Sigue "Keep a Changelog".
 
 > Los conteos de tests de cada version son historicos. La version actual
-> tiene **245 tests** y una cobertura de **~94 %**.
+> tiene **224 tests** y una cobertura de **~94 %**.
+
+## [Unreleased] - 2026-11-24 - Retirada del motor de simulacion
+
+### Eliminado
+- Modulos `simulacion.py` y `concurrencia.py` (`Simulador`,
+  `ResultadoSimulacion`, `simular`, escenarios concurrentes y
+  `ErrorSimulacion`).
+- Flags `--simulate`, `--parallel`, `--sessions`, `--strategy`, `--seed` y
+  `--drift` del entry point.
+- Comandos `simulate`, `parallel` y `strategy` de la CLI y boton **Simular**
+  de la GUI.
+- `exportar_simulacion` de la capa de persistencia.
+
+### Cambiado
+- README y documentacion de arquitectura/casos de uso actualizados para
+  reflejar la API disponible: mercado, cartera, metricas, persistencia,
+  exportacion, CLI y GUI.
 
 ## [Unreleased] - 2026-11-01 - Logging, docs publicadas y foco en dominio
 

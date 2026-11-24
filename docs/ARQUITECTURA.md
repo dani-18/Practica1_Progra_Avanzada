@@ -11,8 +11,8 @@ la API generada con `pdoc` (`docs/api/`).
 +---------------------------------------------------------------+
 |  Interfaz: CLI (cli.py) | GUI Tkinter (gui.py) | __main__.py  |
 +---------------------------------------------------------------+
-|  Aplicacion: simulacion.py | concurrencia.py | metricas.py    |
-|         gestor_carteras.py | logging_config.py (transversal)   |
+|  Aplicacion: metricas.py | gestor_carteras.py              |
+|         logging_config.py (transversal)                        |
 +---------------------------------------------------------------+
 |  Dominio: instrumento.py / accion.py / bono.py / etf.py       |
 |           cartera.py | operacion.py | mercado.py              |
@@ -77,7 +77,7 @@ precio[t+1] = precio[t] * (1 + deriva + 0.02 * volatilidad * Z)
 Z ~ N(0, 1)
 ```
 
-* `deriva` modela mercados alcistas/bajistas (`--drift 0.001`).
+* `deriva` modela mercados alcistas/bajistas (`mercado_demo(deriva=0.001)`).
 * `aplicar_shock(-0.15)` simula un crash puntual sin avanzar la sesion.
 * La semilla de `random.Random` hace las ejecuciones reproducibles.
 * `historial_precios(id)` y `mercado.sesiones` alimentan metricas y
@@ -111,9 +111,8 @@ Metricas implementadas en `metricas.py` (funciones puras):
 ### Strategy sin efectos secundarios
 
 Una estrategia **decide**, no ejecuta. `decidir(contexto)` devuelve una lista
-de `Decision`; `Simulador` las aplica contra la cartera y el mercado. Esta
-separacion permite testear estrategias sin mercado real, combinar decisiones
-y ejecutar escenarios en paralelo sin estado compartido.
+de `Decision`. Esta separacion permite testear estrategias sin mercado real y
+consumir sus decisiones desde la aplicacion que las necesite.
 
 ```python
 from bolsa_sim import ComprarMantener, ContextoMercado, Decision
@@ -141,7 +140,7 @@ Backends:
 | Backend | Uso | Caracteristica |
 |---|---|---|
 | `RepositorioSQLite` | produccion / CLI / GUI | almacen principal, transacciones |
-| `RepositorioMemoria` | tests y simulaciones | rapido, `RLock` para concurrencia |
+| `RepositorioMemoria` | tests | rapido, `RLock` para acceso concurrente |
 | `RepositorioJSON` | intercambio de estados | fichero legible y portable |
 
 `ServicioPersistencia.guardar_estado()` es idempotente: guarda instrumentos,
@@ -159,34 +158,17 @@ Exportacion:
   sesiones, metricas).
 * CSV: formato largo con `registro` = `metrica`, `resumen`, `posicion`,
   `operacion` o `precio_sesion`.
-* `exportar_simulacion(resultado, ruta)` para resultados de simulacion.
 
-## 6. Concurrencia
-
-`concurrencia.py` ejecuta escenarios independientes con
-`ThreadPoolExecutor`. Cada escenario construye su propio `Mercado`, `Cartera`
-y estrategia; no hay estado mutable compartido. La semilla garantiza
-resultados reproducibles y `ejecutar_escenarios` conserva el orden de entrada.
-
-```python
-from bolsa_sim import Escenario, ejecutar_escenarios
-
-resultados = ejecutar_escenarios([
-    Escenario("base", "comprar_mantener", semilla=42, sesiones=60),
-    Escenario("tendencia", "momentum", semilla=42, sesiones=60),
-], max_workers=2)
-```
-
-## 7. GUI
+## 6. GUI
 
 `gui.py` usa Tkinter (stdlib) y se importa sin entorno grafico: las clases de
 Tk se cargan de forma perezosa. Muestra tabla de mercado, posiciones, panel
 de metricas y grafico de la curva de valor. Los botones permiten avanzar
-sesion, aplicar shock, comprar/vender, comparar estrategias, guardar, cargar
-y exportar. Los helpers `formatear_instrumentos`, `formatear_posiciones`,
-`resumen_cartera` y `puntos_curva` son funciones puras testeadas sin display.
+sesion, aplicar shock, comprar/vender, guardar, cargar y exportar. Los helpers
+`formatear_instrumentos`, `formatear_posiciones`, `resumen_cartera` y
+`puntos_curva` son funciones puras testeadas sin display.
 
-## 8. Excepciones de dominio
+## 7. Excepciones de dominio
 
 `excepciones.py` define `ErrorBolsa` y subclases que tambien heredan de la
 excepcion builtin adecuada (`ValueError`, `KeyError`, `RuntimeError`). Asi
@@ -195,18 +177,18 @@ la CLI/GUI capturan `ErrorBolsa` y el codigo antiguo sigue funcionando.
 * `InstrumentoDesconocido`, `InstrumentoDuplicado`.
 * `OperacionInvalida`, `FondosInsuficientes`, `PosicionInsuficiente`.
 * `EstrategiaDesconocida`, `TipoInstrumentoDesconocido`.
-* `ErrorPersistencia`, `ErrorSimulacion`, `FormatoNoSoportado`.
+* `ErrorPersistencia`, `FormatoNoSoportado`.
 
-## 9. Calidad
+## 8. Calidad
 
-* 245 tests, cobertura ~94 % (`--cov-fail-under=70` en CI).
+* 224 tests, cobertura ~94 % (`--cov-fail-under=70` en CI).
 * Black + Ruff + pre-commit.
 * CI multi-version (3.10-3.13), `pdoc` y despliegue de la API en GitHub Pages
   desde `main`.
 * Tests con SQLite `:memory:` y ficheros temporales; la GUI se salta en CI
   sin display (`pytest.importorskip` + `gui_disponible`).
 
-## 10. Logging
+## 9. Logging
 
 `logging_config.py` centraliza el logging con la biblioteca estándar. La
 biblioteca no instala handlers al importarse (solo un `NullHandler`), de modo
@@ -214,7 +196,7 @@ que no contamina a la aplicación anfitriona. `configurar_logging` es
 idempotente y permite consola y/o fichero.
 
 * `obtener_logger(__name__)` crea loggers bajo `bolsa_sim`.
-* `INFO`: simulación, guardado/carga, shocks.
+* `INFO`: guardado/carga, shocks y operaciones relevantes.
 * `DEBUG`: sesiones, comandos y argumentos de la CLI.
 * `WARNING`: entradas/comandos inválidos.
 * `ERROR`: errores de dominio y persistencia antes de propagar.
@@ -222,10 +204,10 @@ idempotente y permite consola y/o fichero.
 El entry point expone `--verbose`, `--quiet` y `--log-file`; también se puede
 fijar el nivel con `BOLSA_LOG_LEVEL`.
 
-## 11. Hoja de ruta
+## 10. Hoja de ruta
 
 PRAC3 y PRAC4 quedan cubiertas (patrones, excepciones, SQLite, JSON/CSV,
-GUI, concurrencia, cobertura y tag `v1.0.0`). Lineas futuras:
+GUI, cobertura y tag `v1.0.0`). Lineas futuras:
 
 * Mas estrategias (valor, pares, cartera eficiente de Markowitz).
 * Datos reales de mercado (importacion CSV/Yahoo Finance).

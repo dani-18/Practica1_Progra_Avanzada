@@ -20,7 +20,6 @@ from .exportadores import (
     crear_exportador,
     datos_exportacion,
     exportar_resultados,
-    exportar_simulacion,
 )
 from .fabrica import RepositorioFactory
 from .repositorios import (
@@ -45,7 +44,6 @@ __all__ = [
     "crear_exportador",
     "datos_exportacion",
     "exportar_resultados",
-    "exportar_simulacion",
     "inicializar_esquema",
     "transaccion",
     "version_esquema",

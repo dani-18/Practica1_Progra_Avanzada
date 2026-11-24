@@ -9,7 +9,6 @@ import pytest
 
 from bolsa_sim.cartera import Cartera
 from bolsa_sim.demo import cartera_demo, mercado_demo
-from bolsa_sim.estrategias import ComprarMantener
 from bolsa_sim.excepciones import ErrorPersistencia, FormatoNoSoportado
 from bolsa_sim.operacion import Operacion
 from bolsa_sim.persistencia import (
@@ -29,11 +28,9 @@ from bolsa_sim.persistencia.exportadores import (
     crear_exportador,
     datos_exportacion,
     exportar_resultados,
-    exportar_simulacion,
     formatos_disponibles,
 )
 from bolsa_sim.persistencia.repositorios import Repositorio
-from bolsa_sim.simulacion import simular
 
 
 def _estado() -> tuple:
@@ -242,13 +239,6 @@ def test_exportadores_y_formatos(tmp_path) -> None:
     datos = datos_exportacion(mercado, cartera)
     assert ExportadorJSON().exportar(datos, tmp_path / "x.json").exists()
     assert ExportadorCSV().exportar(datos, tmp_path / "x.csv").exists()
-
-
-def test_exportar_simulacion(tmp_path) -> None:
-    resultado = simular(mercado_demo(semilla=3), cartera_demo(), ComprarMantener(), sesiones=5)
-    destino = exportar_simulacion(resultado, tmp_path / "sim")
-    assert destino.suffix == ".json"
-    assert json.loads(destino.read_text(encoding="utf-8"))["estrategia"] == resultado.estrategia
 
 
 def test_servicio_exportar(tmp_path) -> None:

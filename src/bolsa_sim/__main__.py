@@ -5,7 +5,6 @@ Uso::
     python -m bolsa_sim                    # demo financiera completa
     python -m bolsa_sim --cli              # interfaz interactiva
     python -m bolsa_sim --gui              # interfaz grafica (Tkinter)
-    python -m bolsa_sim --simulate --sessions 120 --strategy momentum
     python -m bolsa_sim --version
 """
 
@@ -16,15 +15,12 @@ import argparse
 from . import __version__
 from .cartera import Cartera
 from .cli import Shell
-from .concurrencia import comparar_estrategias
 from .demo import cartera_demo, instrumentos_demo, mercado_demo
-from .estrategias import crear_estrategia, estrategias_disponibles
 from .excepciones import ErrorBolsa
 from .gui import lanzar_gui
 from .logging_config import configurar_logging, obtener_logger
 from .metricas import metricas_cartera
 from .persistencia.exportadores import exportar_resultados
-from .simulacion import Simulador
 
 log = obtener_logger(__name__)
 
@@ -76,39 +72,7 @@ def _demo() -> int:
     print(f"flujo anual agregado de 1 unidad de cada instrumento: {flujo:.2f} EUR")
     print(f"metricas: {metricas_cartera(cartera, mercado)}")
 
-    print("\n--- comparacion de estrategias (concurrente, 40 sesiones) ---")
-    for item in comparar_estrategias(semilla=42, sesiones=40):
-        print(f"  {item.resultado}")
     log.info("demo completada")
-    return 0
-
-
-def _simular(sesiones: int, estrategia: str, semilla: int, deriva: float) -> int:
-    mercado = mercado_demo(semilla=semilla, deriva=deriva)
-    cartera = cartera_demo()
-    simulador = Simulador(
-        mercado,
-        cartera,
-        crear_estrategia(estrategia),
-        sesiones=sesiones,
-        volumen=100,
-    )
-    resultado = simulador.ejecutar()
-    print(resultado)
-    print(resultado.metricas)
-    return 0
-
-
-def _paralelo(sesiones: int) -> int:
-    print(f"Comparacion concurrente de estrategias ({sesiones} sesiones):")
-    for item in comparar_estrategias(semilla=42, sesiones=sesiones):
-        print(
-            f"  {item.escenario.estrategia:<18} "
-            f"valor={item.resultado.valor_final:>10.2f}  "
-            f"rent={item.resultado.rentabilidad_total:>8.2%}  "
-            f"sharpe={item.resultado.metricas.ratio_sharpe:>6.2f}  "
-            f"ops={item.resultado.numero_operaciones}"
-        )
     return 0
 
 
@@ -126,8 +90,7 @@ def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="bolsa-sim",
         description=(
-            "Simulador de Bolsa (PRAC3/PRAC4: patrones, persistencia, "
-            "metricas, concurrencia y GUI)."
+            "Simulador de Bolsa (PRAC3/PRAC4: patrones, persistencia, " "metricas y GUI)."
         ),
     )
     p.add_argument("--demo", action="store_true", help="imprime el flujo demo")
@@ -135,19 +98,6 @@ def _parser() -> argparse.ArgumentParser:
         "--cli", "--interactive", action="store_true", help="abre la consola interactiva"
     )
     p.add_argument("--gui", action="store_true", help="abre la interfaz grafica (Tkinter)")
-    p.add_argument(
-        "--simulate", action="store_true", help="simula una estrategia y muestra metricas"
-    )
-    p.add_argument("--parallel", action="store_true", help="compara estrategias en paralelo")
-    p.add_argument("--sessions", type=int, default=120, help="sesiones a simular")
-    p.add_argument(
-        "--strategy",
-        default="momentum",
-        choices=estrategias_disponibles(),
-        help="estrategia de simulacion",
-    )
-    p.add_argument("--seed", type=int, default=42, help="semilla reproducible")
-    p.add_argument("--drift", type=float, default=0.0, help="deriva diaria (ej. 0.001)")
     p.add_argument("--export", metavar="RUTA", help="exporta la demo a JSON/CSV")
     verbosidad = p.add_mutually_exclusive_group()
     verbosidad.add_argument(
@@ -175,10 +125,6 @@ def cli(argv: list[str] | None = None) -> int:
             resultado = _gui()
         elif args.cli:
             resultado = _cli_interactiva()
-        elif args.parallel:
-            resultado = _paralelo(args.sessions)
-        elif args.simulate:
-            resultado = _simular(args.sessions, args.strategy, args.seed, args.drift)
         elif args.export:
             mercado = mercado_demo()
             cartera = cartera_demo()

@@ -3,12 +3,12 @@
 > **Practicas 1-4 de Tecnicas de Programacion Avanzada** — Grupo A — curso 2026-2027.
 > Simulador didactico de bolsa con jerarquia de instrumentos, estrategias de
 > inversion, metricas de rentabilidad/riesgo, persistencia SQLite, exportacion
-> JSON/CSV, GUI Tkinter y simulacion concurrente.
+> JSON/CSV y GUI Tkinter.
 >
 > PRAC1: 4 clases de dominio con `@property`/setter.
 > PRAC2: `Accion`/`Bono`/`ETF` heredando de `InstrumentoBase` (polimorfismo) y CLI.
 > **PRAC3: Strategy + Factory + excepciones de dominio + SQLite + JSON/CSV.**
-> **PRAC4: GUI, concurrencia, cobertura >= 70 % y tag `v1.0.0`.**
+> **PRAC4: GUI, cobertura >= 70 % y tag `v1.0.0`.**
 
 ## Indice
 
@@ -20,13 +20,12 @@
 3. [Dominio y jerarquia](#3-dominio-y-jerarquia)
 4. [Uso financiero: mercado, estrategias y metricas](#4-uso-financiero-mercado-estrategias-y-metricas)
 5. [Persistencia y exportacion](#5-persistencia-y-exportacion)
-6. [Concurrencia](#6-concurrencia)
-7. [GUI](#7-gui)
-8. [CLI interactiva](#8-cli-interactiva)
-9. [Patrones y decisiones de diseno](#9-patrones-y-decisiones-de-diseno)
-10. [Pruebas y calidad](#10-pruebas-y-calidad)
-11. [Estructura del repositorio](#11-estructura-del-repositorio)
-12. [Documentacion y roadmap](#12-documentacion-y-roadmap)
+6. [GUI](#6-gui)
+7. [CLI interactiva](#7-cli-interactiva)
+8. [Patrones y decisiones de diseno](#8-patrones-y-decisiones-de-diseno)
+9. [Pruebas y calidad](#9-pruebas-y-calidad)
+10. [Estructura del repositorio](#10-estructura-del-repositorio)
+11. [Documentacion y roadmap](#11-documentacion-y-roadmap)
 
 ## 1. Que hace el simulador
 
@@ -36,16 +35,17 @@ El proyecto modela un pequeno mercado bursatil y permite:
 * evolucionar precios con un movimiento browniano geometrico reproducible;
 * aplicar shocks de mercado (`-15 %`, rally, etc.);
 * comprar y vender con comisiones, controlando efectivo y posiciones;
-* ejecutar estrategias (`comprar_mantener`, `momentum`, `rebalanceo`);
+* definir estrategias (`comprar_mantener`, `momentum`, `rebalanceo`) como
+  clases de dominio con el patron Strategy;
 * calcular rentabilidad total/anualizada, volatilidad, Sharpe, Sortino y max
   drawdown;
 * guardar y recuperar el estado completo en SQLite (o memoria/JSON);
 * gestionar **varias carteras** (un usuario por cartera) y elegir la activa;
 * exportar cartera, operaciones, sesiones y metricas a JSON/CSV;
-* comparar estrategias en paralelo y operar desde CLI o GUI.
+* operar desde CLI o GUI.
 
 La logica de negocio esta separada de la infraestructura. El paquete runtime
-es **solo biblioteca estandar** (`sqlite3`, `tkinter`, `concurrent.futures`...).
+es **solo biblioteca estandar** (`sqlite3`, `tkinter`...).
 
 ### 1.1 Casos de uso reales
 
@@ -55,26 +55,22 @@ repetir con el codigo de [`docs/CASOS_DE_USO.md`](docs/CASOS_DE_USO.md):
 
 | Caso | Resultado real |
 |---|---|
-| Comprar y mantener 120 sesiones (10 000 EUR) | `+2,31 %`, drawdown `1,14 %`, Sharpe `1,95`, 3 operaciones |
+| Comprar y mantener (10 000 EUR) | `+2,28 %`, drawdown `1,14 %`, Sharpe `1,91`, 3 operaciones |
 | Crash del 15 % con 20 ACME | `-4,14 %`, drawdown `7,69 %`, volatilidad `10,77 %`, Sharpe `-0,76` |
-| Comparar tres estrategias (120 sesiones) | `comprar_mantener` `+0,78 %`; `momentum` `-6,09 %` y 64 operaciones |
 | Guardar/cargar en SQLite | 49 operaciones y 30 sesiones reconstruidas sin duplicados |
 
 Ejemplo minimo de cartera y metricas:
 
 ```python
-from bolsa_sim import ComprarMantener, Simulador
+from bolsa_sim import metricas_cartera
 from bolsa_sim.demo import cartera_demo, mercado_demo
 
-resultado = Simulador(
-    mercado_demo(semilla=42),
-    cartera_demo(efectivo=10_000.0),
-    ComprarMantener(fraccion=0.95),
-    sesiones=120,
-).ejecutar()
+mercado = mercado_demo(semilla=42)
+cartera = cartera_demo(efectivo=10_000.0)
+cartera.comprar(mercado, "ACME", 2)
 
-print(resultado)             # [comprar_mantener] 120 sesiones ... (+2.31%) ops=3
-print(resultado.metricas)    # rentabilidad, volatilidad, Sharpe, Sortino, drawdown
+print(cartera)
+print(metricas_cartera(cartera, mercado))
 ```
 
 ### 1.2 Varias carteras y usuarios
@@ -130,8 +126,6 @@ Comandos principales:
 python -m bolsa_sim                 # demo financiera completa
 python -m bolsa_sim --cli           # consola interactiva
 python -m bolsa_sim --gui           # interfaz grafica Tkinter
-python -m bolsa_sim --simulate --sessions 120 --strategy momentum --seed 42
-python -m bolsa_sim --parallel --sessions 60
 python -m bolsa_sim --export resultados.json
 python -m bolsa_sim --verbose      # logging DEBUG en consola
 python -m bolsa_sim --log-file bolsa.log
@@ -150,14 +144,14 @@ python -m bolsa_sim --log-file bolsa.log      # consola + fichero
 BOLSA_LOG_LEVEL=INFO python -m bolsa_sim
 ```
 
-Se registran simulaciones, guardados/cargas, shocks y errores de dominio. El
+Se registran operaciones, guardados/cargas, shocks y errores de dominio. El
 detalle para desarrolladores esta en [`docs/DESARROLLO.md`](docs/DESARROLLO.md).
 
 Tambien esta el entry point `bolsa-sim`:
 
 ```bash
 bolsa-sim --cli
-bolsa-sim --simulate --strategy rebalanceo
+bolsa-sim --export resultados.json
 ```
 
 Ejemplo de salida de la demo (semilla 42, resultados reproducibles):
@@ -238,29 +232,10 @@ print(mercado.historial_precios("ACME"))
 print(mercado.rendimiento_desde_inicio("ACME"))
 ```
 
-### Simulacion de una estrategia
+### Estrategias disponibles
 
-```python
-from bolsa_sim import Momentum, Simulador
-from bolsa_sim.demo import cartera_demo, mercado_demo
-
-resultado = Simulador(
-    mercado_demo(semilla=42),
-    cartera_demo(),
-    Momentum(ventana=10, fraccion=0.3),
-    sesiones=120,
-).ejecutar()
-
-print(resultado)             # valor inicial -> final, rentabilidad, operaciones
-print(resultado.metricas)    # volatilidad, Sharpe, Sortino, drawdown
-```
-
-Salida orientativa (semilla 42, 30 sesiones):
-
-```text
-[momentum] 30 sesiones  valor 1000.00 -> 976.33 EUR  (-2.37%)  ops=19
-rentabilidad=-2.37%  anualizada=-18.23%  volatilidad=1.50%  max_drawdown=2.37%  ...
-```
+Las estrategias siguen formando parte del dominio como clases con el patron
+Strategy. La CLI permite consultarlas con el comando `strategies`.
 
 Las estrategias disponibles son:
 
@@ -309,7 +284,7 @@ servicio.guardar_carteras(mercado, [cartera_dani, cartera_ana])
 mercado2, carteras = servicio.cargar_carteras("Bolsa")
 ```
 
-Backends: `sqlite` (principal), `memoria` (tests/simulaciones) y `json`
+Backends: `sqlite` (principal), `memoria` (tests) y `json`
 (fichero portable). El esquema incluye `instrumento`, `cartera`, `posicion`,
 `operacion`, `sesion` y `precio_sesion`; el libro de operaciones es
 **append-only**. El detalle de diseno esta en
@@ -318,38 +293,17 @@ Backends: `sqlite` (principal), `memoria` (tests/simulaciones) y `json`
 Exportacion:
 
 ```python
-from bolsa_sim.persistencia import exportar_resultados, exportar_simulacion
+from bolsa_sim.persistencia import exportar_resultados
 
 exportar_resultados(mercado, cartera, "resultados.json", "json")
 exportar_resultados(mercado, cartera, "resultados.csv", "csv")
-exportar_simulacion(resultado, "simulacion.json")
 ```
 
 El CSV usa formato largo (`registro` = `metrica`, `resumen`, `posicion`,
 `operacion`, `precio_sesion`) para ser consumible por hoja de calculo sin
 perder informacion.
 
-## 6. Concurrencia
-
-Los escenarios son independientes (mercado, cartera y estrategia propios) y
-se ejecutan en un `ThreadPoolExecutor`:
-
-```python
-from bolsa_sim import Escenario, ejecutar_escenarios
-
-resultados = ejecutar_escenarios([
-    Escenario("base", "comprar_mantener", semilla=42, sesiones=60),
-    Escenario("tendencia", "momentum", semilla=42, sesiones=60),
-    Escenario("rebalanceo", "rebalanceo", semilla=42, sesiones=60),
-], max_workers=3)
-
-for r in resultados:
-    print(r.escenario.nombre, r.resultado.rentabilidad_total)
-```
-
-Desde la terminal: `python -m bolsa_sim --parallel --sessions 60`.
-
-## 7. GUI
+## 6. GUI
 
 ```bash
 python -m bolsa_sim --gui
@@ -358,14 +312,14 @@ python -m bolsa_sim --gui
 La ventana muestra la tabla del mercado, las posiciones, el panel de metricas
 y la curva de valor. Incluye un desplegable **Usuario** para cambiar de
 cartera y un boton **Nueva cartera** para crear otro usuario. Botones:
-avanzar sesion, shock -10 %, comprar, vender, comparar estrategias
-(concurrente), metricas, guardar/cargar y exportar.
+avanzar sesion, shock -10 %, comprar, vender, metricas, guardar/cargar y
+exportar.
 
 Tkinter se importa de forma perezosa, por lo que el paquete y los tests
 funcionan en entornos sin display (CI). Los helpers de formato y el calculo
 de puntos del grafico son funciones puras testeadas.
 
-## 8. CLI interactiva
+## 7. CLI interactiva
 
 ```bash
 python -m bolsa_sim --cli
@@ -389,9 +343,6 @@ python -m bolsa_sim --cli
 | `metrics` | rentabilidad, volatilidad, Sharpe, drawdown |
 | `chart <id>` | grafico ASCII de precios |
 | `strategies` | lista estrategias |
-| `strategy <nombre> [k=v...]` | fija la estrategia de simulacion |
-| `simulate [n] [estrategia] [k=v...]` | simula y muestra metricas |
-| `parallel [n]` | compara estrategias en paralelo |
 | `export <json\|csv> <ruta>` | exporta resultados |
 | `save [ruta]` | guarda en SQLite (o backend actual) |
 | `load <ruta> [propietario]` | carga un estado guardado |
@@ -413,15 +364,13 @@ Sesion 1: ACME=119.93  BONO10=99.98  SP500=399.87
 bolsa> metrics
 Capital inicial=1000.00 EUR  valor actual=998.00 EUR
 rentabilidad=-0.20%  anualizada=...  sharpe=...
-bolsa> simulate 60 momentum
-[momentum] 60 sesiones  valor 1000.00 -> ... EUR
 bolsa> export json resultados.json
 Exportado json en resultados.json
 bolsa> save datos.sqlite
 Estado guardado (RepositorioSQLite).
 ```
 
-## 9. Patrones y decisiones de diseno
+## 8. Patrones y decisiones de diseno
 
 | Patron | Implementacion |
 |---|---|
@@ -439,37 +388,35 @@ Decisiones que conviene poder justificar:
   mismo instrumento logico. Es util para agregar posiciones y reconstruir
   desde el almacen; el tipo concreto se conserva en la instancia. Documentado
   en `docs/ARQUITECTURA.md` (limitacion: un `id` es unico en todo el mercado).
-* **Estrategia decide, simulador ejecuta**: mantiene las estrategias puras y
-  testeables, y permite paralelizar escenarios sin estado compartido.
 * **Append-only**: las operaciones no se modifican; `sincronizar_operaciones`
   verifica el prefijo guardado antes de anadir el sufijo nuevo.
 * **Excepciones de dominio compatibles**: heredan tambien de `ValueError` /
   `KeyError` / `RuntimeError` para no romper el contrato de la biblioteca.
 * **Deriva y shock**: la deriva modela tendencia; el shock modela un evento
   extremo sin falsear el contador de sesiones.
-* **Sin dependencias runtime**: SQLite, Tkinter y concurrencia vienen con
-  Python; el proyecto sigue siendo facil de instalar y corregir.
+* **Sin dependencias runtime**: SQLite y Tkinter vienen con Python; el
+  proyecto sigue siendo facil de instalar y corregir.
 
-## 10. Pruebas y calidad
+## 9. Pruebas y calidad
 
 ```bash
-python -m pytest -q                        # 245 tests
+python -m pytest -q                        # 224 tests
 python -m pytest --cov=bolsa_sim           # cobertura ~94 %
 python -m pytest --cov=bolsa_sim --cov-fail-under=70
 python -m black --check src tests
 python -m ruff check src tests
 ```
 
-Estado actual: **245 tests**, **93,88 %** de cobertura.
+Estado actual: **224 tests**, **93,69 %** de cobertura.
 
 Los tests cubren casos limite de validacion, operaciones invalidas,
 fondos/posiciones insuficientes, shocks extremos, series vacias/planas,
-persistencia SQLite, JSON corrupto, exportacion, concurrencia, logging y GUI.
+persistencia SQLite, JSON corrupto, exportacion, logging y GUI.
 CI ejecuta Black, Ruff y pytest con `--cov-fail-under=70` en Python 3.10-3.13.
 El detalle de comandos y convenciones esta en
 [`docs/DESARROLLO.md`](docs/DESARROLLO.md).
 
-## 11. Estructura del repositorio
+## 10. Estructura del repositorio
 
 ```text
 Practica_Progra_Avanzada/
@@ -486,7 +433,7 @@ Practica_Progra_Avanzada/
 |   `-- api/                       API generada por pdoc y publicada en Pages
 |-- src/bolsa_sim/
 |   |-- __init__.py                API publica y version 1.0.0
-|   |-- __main__.py                flags --demo/--cli/--gui/--simulate/--parallel/--export/--log-file
+|   |-- __main__.py                flags --demo/--cli/--gui/--export/--log-file
 |   |-- instrumento.py             InstrumentoBase
 |   |-- accion.py / bono.py / etf.py
 |   |-- operacion.py               value object append-only
@@ -498,8 +445,6 @@ Practica_Progra_Avanzada/
 |   |-- logging_config.py          logging stdlib configurable
 |   |-- metricas.py                rentabilidad, riesgo, Sharpe, Sortino
 |   |-- estrategias.py             Strategy + fabrica de estrategias
-|   |-- simulacion.py              Simulador + ResultadoSimulacion
-|   |-- concurrencia.py            escenarios en ThreadPoolExecutor
 |   |-- cli.py                     Shell interactiva
 |   |-- gui.py                     GUI Tkinter (import perezoso)
 |   |-- demo.py                    escenario de ejemplo reutilizable
@@ -512,16 +457,16 @@ Practica_Progra_Avanzada/
 |       |-- fabrica.py             RepositorioFactory (Factory)
 |       |-- servicio.py            guardar/cargar estado completo
 |       `-- exportadores.py        JSON / CSV (Strategy)
-`-- tests/                         245 tests
+`-- tests/                         224 tests
 ```
 
-## 12. Documentacion y roadmap
+## 11. Documentacion y roadmap
 
 * `README.md` (este documento) y `CHANGELOG.md`.
 * [`docs/CASOS_DE_USO.md`](docs/CASOS_DE_USO.md): escenarios financieros con
   salidas reales (comprar y mantener, crash, comparacion, persistencia).
 * [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md): patrones, formulas,
-  persistencia, concurrencia y decisiones.
+  persistencia y decisiones.
 * [`docs/DESARROLLO.md`](docs/DESARROLLO.md): entorno, tests, logging, CI y
   checklist de entrega.
 * API automatica con `pdoc`:
