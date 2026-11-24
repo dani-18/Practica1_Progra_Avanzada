@@ -114,10 +114,6 @@ class Mercado:
             raise InstrumentoDesconocido(f"instrumento {instrumento_id!r} no esta en el mercado")
         return tuple(self._historial_precios[instrumento_id])
 
-    @property
-    def series(self) -> dict[str, tuple[float, ...]]:
-        return {tid: tuple(serie) for tid, serie in self._historial_precios.items()}
-
     # ---- properties con validacion ---------------------------------------
     @property
     def sesion(self) -> int:

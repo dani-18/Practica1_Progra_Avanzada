@@ -16,7 +16,7 @@ la API generada con `pdoc` (`docs/api/`).
 +---------------------------------------------------------------+
 |  Dominio: instrumento.py / accion.py / bono.py / etf.py       |
 |           cartera.py | operacion.py | mercado.py              |
-|           estrategias.py | fabrica.py | excepciones.py        |
+|           fabrica.py | excepciones.py                         |
 +---------------------------------------------------------------+
 |  Infraestructura: persistencia/ (SQLite, JSON, memoria)       |
 +---------------------------------------------------------------+
@@ -98,30 +98,21 @@ Metricas implementadas en `metricas.py` (funciones puras):
 
 | Patron | Donde | Para que |
 |---|---|---|
-| **Strategy** | `estrategias.py` | `ComprarMantener`, `Momentum` y `Rebalanceo` comparten `decidir(contexto)`. |
 | **Strategy** | `persistencia/exportadores.py` | `ExportadorJSON` y `ExportadorCSV` comparten `exportar(datos, ruta)`. |
 | **Factory** | `fabrica.py` | `FabricaInstrumentos` reconstruye `Accion/Bono/ETF` desde diccionarios. |
 | **Factory** | `persistencia/fabrica.py` | `RepositorioFactory` elige SQLite, memoria o JSON. |
-| **Factory** | `estrategias.crear_estrategia` | Resuelve la estrategia por nombre y parametros. |
+| **Factory** | `persistencia/exportadores.py` | `crear_exportador` resuelve el exportador por formato. |
 | **Repository** | `persistencia/repositorios.py` | Aisla el dominio del almacen y permite backends intercambiables. |
 | **Dependency injection** | `Cartera(..., repositorio=repo)` | Persistencia opcional sin acoplar el dominio. |
 | **Template Method** | `InstrumentoBase.mostrar/flujo_anual` | Las subclases reutilizan el formato y amplian el comportamiento. |
 | **Value Object** | `Operacion` | Inmutabilidad y comparacion por contenido. |
 
-### Strategy sin efectos secundarios
+### Strategy en exportadores
 
-Una estrategia **decide**, no ejecuta. `decidir(contexto)` devuelve una lista
-de `Decision`. Esta separacion permite testear estrategias sin mercado real y
-consumir sus decisiones desde la aplicacion que las necesite.
-
-```python
-from bolsa_sim import ComprarMantener, ContextoMercado, Decision
-
-class MiEstrategia(ComprarMantener):
-    nombre = "mi_estrategia"
-    def decidir(self, contexto: ContextoMercado) -> list[Decision]:
-        ...  # reglas propias
-```
+`Exportador` define el contrato `exportar(datos, ruta)`. `ExportadorJSON` y
+`ExportadorCSV` son implementaciones intercambiables, y `crear_exportador`
+selecciona la concreta sin que CLI, GUI o `ServicioPersistencia` conozcan las
+clases de formato.
 
 ## 5. Persistencia
 
@@ -176,12 +167,12 @@ la CLI/GUI capturan `ErrorBolsa` y el codigo antiguo sigue funcionando.
 
 * `InstrumentoDesconocido`, `InstrumentoDuplicado`.
 * `OperacionInvalida`, `FondosInsuficientes`, `PosicionInsuficiente`.
-* `EstrategiaDesconocida`, `TipoInstrumentoDesconocido`.
+* `TipoInstrumentoDesconocido`.
 * `ErrorPersistencia`, `FormatoNoSoportado`.
 
 ## 8. Calidad
 
-* 224 tests, cobertura ~94 % (`--cov-fail-under=70` en CI).
+* 208 tests, cobertura ~94 % (`--cov-fail-under=70` en CI).
 * Black + Ruff + pre-commit.
 * CI multi-version (3.10-3.13), `pdoc` y despliegue de la API en GitHub Pages
   desde `main`.
@@ -209,7 +200,6 @@ fijar el nivel con `BOLSA_LOG_LEVEL`.
 PRAC3 y PRAC4 quedan cubiertas (patrones, excepciones, SQLite, JSON/CSV,
 GUI, cobertura y tag `v1.0.0`). Lineas futuras:
 
-* Mas estrategias (valor, pares, cartera eficiente de Markowitz).
 * Datos reales de mercado (importacion CSV/Yahoo Finance).
 * Benchmark de cartera y alpha/beta.
 * Persistencia de series historicas completas en SQLite (hoy se guardan los

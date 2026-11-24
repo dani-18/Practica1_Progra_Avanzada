@@ -1,9 +1,8 @@
 # Simulador de Bolsa y Carteras de Inversion (v1.0.0)
 
 > **Practicas 1-4 de Tecnicas de Programacion Avanzada** — Grupo A — curso 2026-2027.
-> Simulador didactico de bolsa con jerarquia de instrumentos, estrategias de
-> inversion, metricas de rentabilidad/riesgo, persistencia SQLite, exportacion
-> JSON/CSV y GUI Tkinter.
+> Simulador didactico de bolsa con jerarquia de instrumentos, metricas de
+> rentabilidad/riesgo, persistencia SQLite, exportacion JSON/CSV y GUI Tkinter.
 >
 > PRAC1: 4 clases de dominio con `@property`/setter.
 > PRAC2: `Accion`/`Bono`/`ETF` heredando de `InstrumentoBase` (polimorfismo) y CLI.
@@ -18,7 +17,7 @@
    * [1.3 Alcance y limites](#13-alcance-y-limites)
 2. [Instalacion y ejecucion rapida](#2-instalacion-y-ejecucion-rapida)
 3. [Dominio y jerarquia](#3-dominio-y-jerarquia)
-4. [Uso financiero: mercado, estrategias y metricas](#4-uso-financiero-mercado-estrategias-y-metricas)
+4. [Uso financiero: mercado y metricas](#4-uso-financiero-mercado-y-metricas)
 5. [Persistencia y exportacion](#5-persistencia-y-exportacion)
 6. [GUI](#6-gui)
 7. [CLI interactiva](#7-cli-interactiva)
@@ -35,8 +34,6 @@ El proyecto modela un pequeno mercado bursatil y permite:
 * evolucionar precios con un movimiento browniano geometrico reproducible;
 * aplicar shocks de mercado (`-15 %`, rally, etc.);
 * comprar y vender con comisiones, controlando efectivo y posiciones;
-* definir estrategias (`comprar_mantener`, `momentum`, `rebalanceo`) como
-  clases de dominio con el patron Strategy;
 * calcular rentabilidad total/anualizada, volatilidad, Sharpe, Sortino y max
   drawdown;
 * guardar y recuperar el estado completo en SQLite (o memoria/JSON);
@@ -215,7 +212,7 @@ copia = fabrica.desde_dict(datos)
 assert copia == instrumentos[0]   # igualdad por id
 ```
 
-## 4. Uso financiero: mercado, estrategias y metricas
+## 4. Uso financiero: mercado y metricas
 
 ### Mercado y shocks
 
@@ -231,21 +228,6 @@ mercado.aplicar_shock(-0.10)       # crash puntual del 10 %
 print(mercado.historial_precios("ACME"))
 print(mercado.rendimiento_desde_inicio("ACME"))
 ```
-
-### Estrategias disponibles
-
-Las estrategias siguen formando parte del dominio como clases con el patron
-Strategy. La CLI permite consultarlas con el comando `strategies`.
-
-Las estrategias disponibles son:
-
-| Estrategia | Idea | Parametros |
-|---|---|---|
-| `comprar_mantener` | reparte el capital al inicio y no vuelve a operar | `fraccion` |
-| `momentum` | compra impulso positivo y vende el negativo | `ventana`, `umbral`, `fraccion`, `max_posiciones` |
-| `rebalanceo` | corrige desviaciones sobre pesos objetivo | `pesos`, `banda` |
-
-Se pueden crear por fabrica: `crear_estrategia("momentum", ventana=10)`.
 
 ### Metricas
 
@@ -342,7 +324,6 @@ python -m bolsa_sim --cli
 | `history` | historial de operaciones |
 | `metrics` | rentabilidad, volatilidad, Sharpe, drawdown |
 | `chart <id>` | grafico ASCII de precios |
-| `strategies` | lista estrategias |
 | `export <json\|csv> <ruta>` | exporta resultados |
 | `save [ruta]` | guarda en SQLite (o backend actual) |
 | `load <ruta> [propietario]` | carga un estado guardado |
@@ -374,8 +355,8 @@ Estado guardado (RepositorioSQLite).
 
 | Patron | Implementacion |
 |---|---|
-| **Strategy** | `EstrategiaInversion` (`ComprarMantener`, `Momentum`, `Rebalanceo`) y `Exportador` (`ExportadorJSON`, `ExportadorCSV`). |
-| **Factory** | `FabricaInstrumentos`, `RepositorioFactory`, `crear_estrategia`. |
+| **Strategy** | `Exportador` (`ExportadorJSON`, `ExportadorCSV`) con `crear_exportador`. |
+| **Factory** | `FabricaInstrumentos`, `RepositorioFactory`. |
 | **Repository** | `Repositorio` + `RepositorioSQLite` / `RepositorioMemoria` / `RepositorioJSON`. |
 | **Inyeccion de dependencias** | `Cartera(..., repositorio=repo)` y `Mercado(..., repositorio=repo)`. |
 | **Template Method** | `InstrumentoBase.mostrar()` y `flujo_anual()` reutilizados por las subclases. |
@@ -400,14 +381,14 @@ Decisiones que conviene poder justificar:
 ## 9. Pruebas y calidad
 
 ```bash
-python -m pytest -q                        # 224 tests
+python -m pytest -q                        # 208 tests
 python -m pytest --cov=bolsa_sim           # cobertura ~94 %
 python -m pytest --cov=bolsa_sim --cov-fail-under=70
 python -m black --check src tests
 python -m ruff check src tests
 ```
 
-Estado actual: **224 tests**, **93,69 %** de cobertura.
+Estado actual: **208 tests**, **93,37 %** de cobertura.
 
 Los tests cubren casos limite de validacion, operaciones invalidas,
 fondos/posiciones insuficientes, shocks extremos, series vacias/planas,
@@ -444,7 +425,6 @@ Practica_Progra_Avanzada/
 |   |-- excepciones.py             jerarquia ErrorBolsa
 |   |-- logging_config.py          logging stdlib configurable
 |   |-- metricas.py                rentabilidad, riesgo, Sharpe, Sortino
-|   |-- estrategias.py             Strategy + fabrica de estrategias
 |   |-- cli.py                     Shell interactiva
 |   |-- gui.py                     GUI Tkinter (import perezoso)
 |   |-- demo.py                    escenario de ejemplo reutilizable
@@ -457,14 +437,14 @@ Practica_Progra_Avanzada/
 |       |-- fabrica.py             RepositorioFactory (Factory)
 |       |-- servicio.py            guardar/cargar estado completo
 |       `-- exportadores.py        JSON / CSV (Strategy)
-`-- tests/                         224 tests
+`-- tests/                         208 tests
 ```
 
 ## 11. Documentacion y roadmap
 
 * `README.md` (este documento) y `CHANGELOG.md`.
 * [`docs/CASOS_DE_USO.md`](docs/CASOS_DE_USO.md): escenarios financieros con
-  salidas reales (comprar y mantener, crash, comparacion, persistencia).
+  salidas reales (comprar y mantener, crash, persistencia y polimorfismo).
 * [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md): patrones, formulas,
   persistencia y decisiones.
 * [`docs/DESARROLLO.md`](docs/DESARROLLO.md): entorno, tests, logging, CI y
@@ -486,11 +466,10 @@ quiere publicar en otro repositorio, basta ajustar el remoto y activar Pages
 con origen **GitHub Actions**.
 
 **Estado del roadmap**: PRAC1, PRAC2, PRAC3 y PRAC4 completadas. Lineas
-futuras: mas estrategias (valor, pares, Markowitz), datos reales de mercado,
-benchmark/alpha/beta, series historicas completas en SQLite y empaquetado de
-escritorio.
+futuras: datos reales de mercado, benchmark/alpha/beta, series historicas
+completas en SQLite y empaquetado de escritorio.
 
-## 13. Seguridad y licencia
+## 12. Seguridad y licencia
 
 - No consume credenciales ni servicios externos; `.env.example` solo tiene
   parametros de demo.

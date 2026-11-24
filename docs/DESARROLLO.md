@@ -77,8 +77,6 @@ los que haya configurado la aplicación anfitriona. El logger raíz es
 * Tipos con `from __future__ import annotations`; `py.typed` incluido.
 * Excepciones de dominio en `excepciones.py`, compatibles con
   `ValueError`/`KeyError`/`RuntimeError`.
-* Estrategias puras: `decidir(contexto)` devuelve `Decision`; no comparten
-  estado mutable.
 * Persistencia detrás de `Repositorio`; los tests usan `memoria` o SQLite
   `:memory:`.
 

@@ -12,7 +12,6 @@ Uso::
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from .cartera import Cartera
@@ -94,18 +93,6 @@ def puntos_curva(
         y = alto / 2 if rango == 0 else margen + util_alto * (1 - (valor - minimo) / rango)
         puntos.append((x, y))
     return puntos
-
-
-@dataclass
-class EstadoGUI:
-    """Estado minimo que la GUI muestra (facilita tests sin Tk)."""
-
-    mercado: Mercado
-    cartera: Cartera
-
-    @classmethod
-    def por_defecto(cls) -> EstadoGUI:
-        return cls(mercado=mercado_demo(), cartera=cartera_demo())
 
 
 class AplicacionGUI:
@@ -522,7 +509,6 @@ __all__ = [
     "ALTO_GRAFICO",
     "ANCHO_GRAFICO",
     "AplicacionGUI",
-    "EstadoGUI",
     "formatear_instrumentos",
     "formatear_posiciones",
     "gui_disponible",

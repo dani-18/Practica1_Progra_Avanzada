@@ -1,9 +1,9 @@
 """Simulador de Bolsa y Carteras de Inversion (PRAC1-PRAC4).
 
 Paquete con el modelo de dominio, la jerarquia de instrumentos, las
-estrategias de inversion, las metricas y la capa de persistencia.
+metricas y la capa de persistencia.
 
-Version 1.0.0: patrones Strategy/Factory, excepciones de dominio,
+Version 1.0.0: patrones Factory/Strategy, excepciones de dominio,
 SQLite + JSON/CSV y GUI Tkinter.
 """
 
@@ -13,16 +13,6 @@ from .accion import Accion
 from .bono import Bono
 from .cartera import Cartera
 from .cli import Shell
-from .estrategias import (
-    ComprarMantener,
-    ContextoMercado,
-    Decision,
-    EstrategiaInversion,
-    Momentum,
-    Rebalanceo,
-    crear_estrategia,
-    estrategias_disponibles,
-)
 from .etf import ETF
 from .excepciones import (
     CarteraDesconocida,
@@ -30,7 +20,6 @@ from .excepciones import (
     DatosInvalidos,
     ErrorBolsa,
     ErrorPersistencia,
-    EstrategiaDesconocida,
     FondosInsuficientes,
     FormatoNoSoportado,
     InstrumentoDesconocido,
@@ -63,14 +52,9 @@ __all__ = [
     "Cartera",
     "CarteraDesconocida",
     "CarteraDuplicada",
-    "ComprarMantener",
-    "ContextoMercado",
     "DatosInvalidos",
-    "Decision",
     "ErrorBolsa",
     "ErrorPersistencia",
-    "EstrategiaDesconocida",
-    "EstrategiaInversion",
     "FabricaInstrumentos",
     "FondosInsuficientes",
     "FormatoNoSoportado",
@@ -80,17 +64,13 @@ __all__ = [
     "InstrumentoDuplicado",
     "Mercado",
     "MetricasInversion",
-    "Momentum",
     "Operacion",
     "OperacionInvalida",
     "PosicionInsuficiente",
-    "Rebalanceo",
     "Shell",
     "TipoInstrumentoDesconocido",
     "calcular_metricas",
     "configurar_logging",
-    "crear_estrategia",
-    "estrategias_disponibles",
     "max_drawdown",
     "metricas_cartera",
     "obtener_logger",

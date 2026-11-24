@@ -57,10 +57,6 @@ class TipoInstrumentoDesconocido(ErrorBolsa, ValueError):
     """La fabrica no conoce el tipo de instrumento solicitado."""
 
 
-class EstrategiaDesconocida(ErrorBolsa, ValueError):
-    """La fabrica no conoce la estrategia de inversion solicitada."""
-
-
 class FormatoNoSoportado(ErrorBolsa, ValueError):
     """No existe un exportador para el formato pedido."""
 
@@ -75,7 +71,6 @@ __all__ = [
     "DatosInvalidos",
     "ErrorBolsa",
     "ErrorPersistencia",
-    "EstrategiaDesconocida",
     "FondosInsuficientes",
     "FormatoNoSoportado",
     "InstrumentoDesconocido",

@@ -22,7 +22,6 @@ from typing import Any
 
 from .cartera import Cartera
 from .demo import cartera_demo, mercado_demo
-from .estrategias import ESTRATEGIAS
 from .excepciones import ErrorBolsa
 from .gestor_carteras import GestorCarteras
 from .logging_config import obtener_logger
@@ -70,7 +69,6 @@ class Shell:
             "next": self._cmd_next,
             "history": self._cmd_history,
             "metrics": self._cmd_metrics,
-            "strategies": self._cmd_strategies,
             "shock": self._cmd_shock,
             "chart": self._cmd_chart,
             "export": self._cmd_export,
@@ -164,7 +162,6 @@ class Shell:
         self._salida("  history                      muestra el historial de operaciones")
         self._salida("  metrics                      metricas de rentabilidad y riesgo")
         self._salida("  chart <instrumento>          grafico ASCII de precios")
-        self._salida("  strategies                   lista estrategias disponibles")
         self._salida("  export <json|csv> <ruta>     exporta resultados")
         self._salida("  save [ruta]                  guarda todas las carteras en SQLite")
         self._salida("  load <ruta> [propietario]    carga el estado y elige la cartera activa")
@@ -333,12 +330,6 @@ class Shell:
             f"valor actual={metricas.valor_final:.2f} EUR"
         )
         self._salida(str(metricas))
-        return True
-
-    def _cmd_strategies(self, args: list[str]) -> bool:
-        self._salida("Estrategias disponibles:")
-        for nombre in sorted(ESTRATEGIAS):
-            self._salida(f"  {nombre:<18} {ESTRATEGIAS[nombre].descripcion}")
         return True
 
     def _cmd_shock(self, args: list[str]) -> bool:

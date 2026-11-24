@@ -29,7 +29,6 @@ def test_historial_inicial_y_tras_sesiones() -> None:
     assert len(mercado.historial_precios("ACME")) == 4
     assert mercado.sesion == 3
     assert mercado.volumen_total == 20
-    assert set(mercado.series) == {"ACME", "GLOB"}
     assert mercado.precios_actuales()["ACME"] == mercado.precio_de("ACME")
 
 

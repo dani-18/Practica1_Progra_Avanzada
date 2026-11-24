@@ -7,7 +7,6 @@ import pytest
 from bolsa_sim.demo import cartera_demo, mercado_demo
 from bolsa_sim.gui import (
     AplicacionGUI,
-    EstadoGUI,
     formatear_instrumentos,
     formatear_posiciones,
     gui_disponible,
@@ -46,12 +45,6 @@ def test_puntos_curva() -> None:
     assert puntos[0] == (12, 38.0)
     assert puntos[1] == (50, 12.0)
     assert puntos[2] == (88, 25.0)
-
-
-def test_estado_gui() -> None:
-    estado = EstadoGUI.por_defecto()
-    assert estado.mercado.nombre == "Bolsa Continuo"
-    assert estado.cartera.propietario == "Dani"
 
 
 def test_gui_disponible_devuelve_bool() -> None:

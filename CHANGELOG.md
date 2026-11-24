@@ -4,7 +4,17 @@ Todos los cambios relevantes del proyecto, en orden cronologico
 inverso. Sigue "Keep a Changelog".
 
 > Los conteos de tests de cada version son historicos. La version actual
-> tiene **224 tests** y una cobertura de **~94 %**.
+> tiene **208 tests** y una cobertura de **~94 %**.
+
+## [Unreleased] - 2026-11-24 - Simplificacion de la API
+
+### Eliminado
+- Modulo `estrategias.py` y sus exports (`ComprarMantener`, `Momentum`,
+  `Rebalanceo`, `Decision`, `ContextoMercado`, fabrica de estrategias) y el
+  comando `strategies` de la CLI.
+- Excepcion `EstrategiaDesconocida`.
+- Dataclass `EstadoGUI` de la GUI.
+- Propiedad `Mercado.series`, que no tenia consumidores.
 
 ## [Unreleased] - 2026-11-24 - Retirada del motor de simulacion
 

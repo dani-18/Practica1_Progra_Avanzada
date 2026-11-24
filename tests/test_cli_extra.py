@@ -36,15 +36,6 @@ def test_metrics(shell) -> None:
     assert "sharpe" in texto
 
 
-def test_strategies(shell) -> None:
-    sh, salida = shell
-    sh.ejecutar("strategies")
-    texto = _texto(salida)
-    assert "comprar_mantener" in texto
-    assert "momentum" in texto
-    assert "rebalanceo" in texto
-
-
 def test_shock_y_chart(shell) -> None:
     sh, salida = shell
     sh.ejecutar("next")
