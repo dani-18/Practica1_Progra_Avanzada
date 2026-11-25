@@ -1,7 +1,7 @@
 """Configuracion de logging del simulador (biblioteca estandar).
 
 La biblioteca **no** instala handlers al importarse: solo crea loggers con
-``obtener_logger``. La aplicacion (``python -m bolsa_sim``, CLI o GUI) decide
+``obtener_logger``. La aplicacion (``python -m bolsa_sim`` o GUI) decide
 el nivel y los destinos con :func:`configurar_logging`. Asi el paquete puede
 usarse como biblioteca sin efectos secundarios sobre el logging global.
 

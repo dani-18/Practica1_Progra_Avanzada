@@ -3,7 +3,7 @@
 El simulador puede operar con varias carteras a la vez: cada una tiene su
 propio efectivo, posiciones, historial y curva de valor. :class:`GestorCarteras`
 mantiene el registro, valida duplicados y decide cual es la **cartera activa**
-sobre la que trabajan la CLI, la GUI y la persistencia.
+sobre la que trabajan la GUI y la persistencia.
 
 Uso::
 

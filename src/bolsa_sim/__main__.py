@@ -3,7 +3,6 @@
 Uso::
 
     python -m bolsa_sim                    # demo financiera completa
-    python -m bolsa_sim --cli              # interfaz interactiva
     python -m bolsa_sim --gui              # interfaz grafica (Tkinter)
     python -m bolsa_sim --version
 """
@@ -14,7 +13,6 @@ import argparse
 
 from . import __version__
 from .cartera import Cartera
-from .cli import Shell
 from .demo import cartera_demo, instrumentos_demo, mercado_demo
 from .excepciones import ErrorBolsa
 from .gui import lanzar_gui
@@ -31,7 +29,7 @@ def _demo() -> int:
     instrumentos = instrumentos_demo()
     accion = instrumentos[0]
 
-    # 1 mercado y 1 cartera (mismo escenario que la CLI interactiva).
+    # 1 mercado y 1 cartera (escenario de ejemplo reutilizable).
     mercado = mercado_demo()
     cartera: Cartera = cartera_demo()
 
@@ -76,12 +74,6 @@ def _demo() -> int:
     return 0
 
 
-def _cli_interactiva() -> int:
-    """Abre la interfaz interactiva de linea de comandos."""
-    Shell().run()
-    return 0
-
-
 def _gui() -> int:
     return lanzar_gui()
 
@@ -94,9 +86,6 @@ def _parser() -> argparse.ArgumentParser:
         ),
     )
     p.add_argument("--demo", action="store_true", help="imprime el flujo demo")
-    p.add_argument(
-        "--cli", "--interactive", action="store_true", help="abre la consola interactiva"
-    )
     p.add_argument("--gui", action="store_true", help="abre la interfaz grafica (Tkinter)")
     p.add_argument("--export", metavar="RUTA", help="exporta la demo a JSON/CSV")
     verbosidad = p.add_mutually_exclusive_group()
@@ -123,8 +112,6 @@ def cli(argv: list[str] | None = None) -> int:
             resultado = 0
         elif args.gui:
             resultado = _gui()
-        elif args.cli:
-            resultado = _cli_interactiva()
         elif args.export:
             mercado = mercado_demo()
             cartera = cartera_demo()

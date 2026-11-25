@@ -4,7 +4,21 @@ Todos los cambios relevantes del proyecto, en orden cronologico
 inverso. Sigue "Keep a Changelog".
 
 > Los conteos de tests de cada version son historicos. La version actual
-> tiene **208 tests** y una cobertura de **~94 %**.
+> tiene **173 tests** y una cobertura de **~94 %**.
+
+## [Unreleased] - 2026-11-25 - Retirada de la consola interactiva
+
+### Eliminado
+- Modulo `cli.py` y clase `Shell` (consola interactiva).
+- Flags `--cli` y `--interactive` del entry point.
+- Tests `test_cli.py` y `test_cli_extra.py`.
+- Export de `Shell` en la API publica del paquete.
+
+### Cambiado
+- README y documentacion de arquitectura/desarrollo/casos de uso actualizados
+  para reflejar que la aplicacion se opera desde la GUI o mediante los flags
+  del entry point (`--demo`, `--gui`, `--export`, `--version`).
+- El logging (`logging_config.py`) se conserva sin cambios funcionales.
 
 ## [Unreleased] - 2026-11-24 - Simplificacion de la API
 

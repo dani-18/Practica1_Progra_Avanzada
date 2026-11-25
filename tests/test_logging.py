@@ -56,7 +56,7 @@ def test_configurar_logging_usa_variable_de_entorno(monkeypatch) -> None:
 
 def test_obtener_logger_cuelga_del_paquete() -> None:
     assert obtener_logger().name == LOGGER_RAIZ
-    assert obtener_logger("bolsa_sim.cli").name == "bolsa_sim.cli"
+    assert obtener_logger("bolsa_sim.demo").name == "bolsa_sim.demo"
     assert obtener_logger("modulo").name == "bolsa_sim.modulo"
 
 

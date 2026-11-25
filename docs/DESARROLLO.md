@@ -63,8 +63,8 @@ Qué se registra:
 | Nivel | Evento |
 |---|---|
 | `INFO` | estado guardado/cargado, shock aplicado, demo completada |
-| `DEBUG` | sesiones del mercado, argumentos y comandos de la CLI |
-| `WARNING` | entradas o comandos no válidos de la CLI |
+| `DEBUG` | sesiones del mercado, argumentos y configuración de logging |
+| `WARNING` | entradas o configuraciones no válidas |
 | `ERROR` | errores de dominio/persistencia antes de propagar la excepción |
 
 `configurar_logging` es idempotente: sustituye solo sus propios handlers, no

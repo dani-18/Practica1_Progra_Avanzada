@@ -1,7 +1,7 @@
 """Fabrica de repositorios (patron **Factory**).
 
 Selecciona el backend de persistencia a partir de un nombre o de la
-extension del fichero, de modo que CLI, GUI y tests no importen clases
+extension del fichero, de modo que la GUI y los tests no importen clases
 concretas::
 
     repo = RepositorioFactory.crear("sqlite", "datos.sqlite")

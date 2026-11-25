@@ -1,6 +1,6 @@
 """Excepciones de dominio del simulador.
 
-Todas heredan de :class:`ErrorBolsa`, de modo que la interfaz (CLI o GUI)
+Todas heredan de :class:`ErrorBolsa`, de modo que la interfaz (GUI)
 puede capturar cualquier error esperado del negocio con un unico ``except``.
 Ademas, cada excepcion hereda de la excepcion builtin mas afin (``ValueError``,
 ``KeyError``...) para no romper el contrato de la biblioteca estandar ni los

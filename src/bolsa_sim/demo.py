@@ -1,7 +1,7 @@
-"""Datos de ejemplo reutilizables por la demo y la CLI interactiva.
+"""Datos de ejemplo reutilizables por la demo y la GUI.
 
 Centraliza la construccion del mercado y la cartera por defecto para que
-``python -m bolsa_sim --demo`` y ``python -m bolsa_sim --cli`` compartan
+``python -m bolsa_sim --demo`` y ``python -m bolsa_sim --gui`` compartan
 exactamente el mismo escenario (una accion, un bono y un ETF).
 """
 

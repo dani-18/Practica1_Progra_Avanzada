@@ -5,7 +5,7 @@
 > rentabilidad/riesgo, persistencia SQLite, exportacion JSON/CSV y GUI Tkinter.
 >
 > PRAC1: 4 clases de dominio con `@property`/setter.
-> PRAC2: `Accion`/`Bono`/`ETF` heredando de `InstrumentoBase` (polimorfismo) y CLI.
+> PRAC2: `Accion`/`Bono`/`ETF` heredando de `InstrumentoBase` (polimorfismo).
 > **PRAC3: Strategy + Factory + excepciones de dominio + SQLite + JSON/CSV.**
 > **PRAC4: GUI, cobertura >= 70 % y tag `v1.0.0`.**
 
@@ -20,11 +20,10 @@
 4. [Uso financiero: mercado y metricas](#4-uso-financiero-mercado-y-metricas)
 5. [Persistencia y exportacion](#5-persistencia-y-exportacion)
 6. [GUI](#6-gui)
-7. [CLI interactiva](#7-cli-interactiva)
-8. [Patrones y decisiones de diseno](#8-patrones-y-decisiones-de-diseno)
-9. [Pruebas y calidad](#9-pruebas-y-calidad)
-10. [Estructura del repositorio](#10-estructura-del-repositorio)
-11. [Documentacion y roadmap](#11-documentacion-y-roadmap)
+7. [Patrones y decisiones de diseno](#7-patrones-y-decisiones-de-diseno)
+8. [Pruebas y calidad](#8-pruebas-y-calidad)
+9. [Estructura del repositorio](#9-estructura-del-repositorio)
+10. [Documentacion y roadmap](#10-documentacion-y-roadmap)
 
 ## 1. Que hace el simulador
 
@@ -39,7 +38,7 @@ El proyecto modela un pequeno mercado bursatil y permite:
 * guardar y recuperar el estado completo en SQLite (o memoria/JSON);
 * gestionar **varias carteras** (un usuario por cartera) y elegir la activa;
 * exportar cartera, operaciones, sesiones y metricas a JSON/CSV;
-* operar desde CLI o GUI.
+* operar desde la GUI.
 
 La logica de negocio esta separada de la infraestructura. El paquete runtime
 es **solo biblioteca estandar** (`sqlite3`, `tkinter`...).
@@ -89,9 +88,9 @@ gestor.seleccionar("Ana")                    # las posiciones de Ana siguen vaci
 print(gestor.nombres())                      # ('Dani', 'Ana')
 ```
 
-En la CLI: `portfolios`, `new <usuario>`, `use <usuario>`. En la GUI, el
-desplegable **Usuario** cambia la cartera activa y el boton **Nueva cartera**
-la crea. `save`/`load` persisten y recuperan **todas** las carteras.
+En la GUI, el desplegable **Usuario** cambia la cartera activa y el boton
+**Nueva cartera** la crea. Guardar y cargar persisten y recuperan **todas**
+las carteras.
 
 ### 1.3 Alcance y limites
 
@@ -121,7 +120,6 @@ Comandos principales:
 
 ```bash
 python -m bolsa_sim                 # demo financiera completa
-python -m bolsa_sim --cli           # consola interactiva
 python -m bolsa_sim --gui           # interfaz grafica Tkinter
 python -m bolsa_sim --export resultados.json
 python -m bolsa_sim --verbose      # logging DEBUG en consola
@@ -147,7 +145,7 @@ detalle para desarrolladores esta en [`docs/DESARROLLO.md`](docs/DESARROLLO.md).
 Tambien esta el entry point `bolsa-sim`:
 
 ```bash
-bolsa-sim --cli
+bolsa-sim --gui
 bolsa-sim --export resultados.json
 ```
 
@@ -301,57 +299,7 @@ Tkinter se importa de forma perezosa, por lo que el paquete y los tests
 funcionan en entornos sin display (CI). Los helpers de formato y el calculo
 de puntos del grafico son funciones puras testeadas.
 
-## 7. CLI interactiva
-
-```bash
-python -m bolsa_sim --cli
-```
-
-| Comando | Accion |
-|---|---|
-| `help` / `?` | muestra la ayuda |
-| `list` / `ls` | lista instrumentos y precios |
-| `market` | estado del mercado |
-| `portfolio` / `status` | cartera activa y valor liquidativo |
-| `portfolios` / `carteras` | lista las carteras y marca la activa |
-| `new <usuario> [efectivo] [comision]` | crea una cartera y la activa |
-| `use <usuario>` | cambia la cartera activa |
-| `price <id>` | precio actual |
-| `buy <id> <cantidad> [precio]` | compra |
-| `sell <id> <cantidad> [precio]` | vende |
-| `next [volumen]` | avanza una sesion |
-| `shock <variacion>` | aplica un shock (ej. `-0.15`) |
-| `history` | historial de operaciones |
-| `metrics` | rentabilidad, volatilidad, Sharpe, drawdown |
-| `chart <id>` | grafico ASCII de precios |
-| `export <json\|csv> <ruta>` | exporta resultados |
-| `save [ruta]` | guarda en SQLite (o backend actual) |
-| `load <ruta> [propietario]` | carga un estado guardado |
-| `quit` / `exit` | sale |
-
-Ejemplo:
-
-```text
-bolsa> portfolios
-Carteras (2):
- * Dani             efectivo=   1000.00 EUR  valor=   1000.00 EUR  ops=0
-   Ana              efectivo=   2000.00 EUR  valor=   2000.00 EUR  ops=0
-bolsa> use Ana
-Cartera activa: 'Ana' (efectivo=2000.00 EUR, posiciones=0)
-bolsa> buy acme 2
-Compra ejecutada: Operacion(fecha='s0000', tipo='compra', ...)
-bolsa> next 50
-Sesion 1: ACME=119.93  BONO10=99.98  SP500=399.87
-bolsa> metrics
-Capital inicial=1000.00 EUR  valor actual=998.00 EUR
-rentabilidad=-0.20%  anualizada=...  sharpe=...
-bolsa> export json resultados.json
-Exportado json en resultados.json
-bolsa> save datos.sqlite
-Estado guardado (RepositorioSQLite).
-```
-
-## 8. Patrones y decisiones de diseno
+## 7. Patrones y decisiones de diseno
 
 | Patron | Implementacion |
 |---|---|
@@ -378,17 +326,17 @@ Decisiones que conviene poder justificar:
 * **Sin dependencias runtime**: SQLite y Tkinter vienen con Python; el
   proyecto sigue siendo facil de instalar y corregir.
 
-## 9. Pruebas y calidad
+## 8. Pruebas y calidad
 
 ```bash
-python -m pytest -q                        # 208 tests
+python -m pytest -q                        # 173 tests
 python -m pytest --cov=bolsa_sim           # cobertura ~94 %
 python -m pytest --cov=bolsa_sim --cov-fail-under=70
 python -m black --check src tests
 python -m ruff check src tests
 ```
 
-Estado actual: **208 tests**, **93,37 %** de cobertura.
+Estado actual: **173 tests**, **93,80 %** de cobertura.
 
 Los tests cubren casos limite de validacion, operaciones invalidas,
 fondos/posiciones insuficientes, shocks extremos, series vacias/planas,
@@ -397,7 +345,7 @@ CI ejecuta Black, Ruff y pytest con `--cov-fail-under=70` en Python 3.10-3.13.
 El detalle de comandos y convenciones esta en
 [`docs/DESARROLLO.md`](docs/DESARROLLO.md).
 
-## 10. Estructura del repositorio
+## 9. Estructura del repositorio
 
 ```text
 Practica_Progra_Avanzada/
@@ -414,7 +362,7 @@ Practica_Progra_Avanzada/
 |   `-- api/                       API generada por pdoc y publicada en Pages
 |-- src/bolsa_sim/
 |   |-- __init__.py                API publica y version 1.0.0
-|   |-- __main__.py                flags --demo/--cli/--gui/--export/--log-file
+|   |-- __main__.py                flags --demo/--gui/--export/--log-file
 |   |-- instrumento.py             InstrumentoBase
 |   |-- accion.py / bono.py / etf.py
 |   |-- operacion.py               value object append-only
@@ -425,7 +373,6 @@ Practica_Progra_Avanzada/
 |   |-- excepciones.py             jerarquia ErrorBolsa
 |   |-- logging_config.py          logging stdlib configurable
 |   |-- metricas.py                rentabilidad, riesgo, Sharpe, Sortino
-|   |-- cli.py                     Shell interactiva
 |   |-- gui.py                     GUI Tkinter (import perezoso)
 |   |-- demo.py                    escenario de ejemplo reutilizable
 |   |-- py.typed                   marcador PEP 561
@@ -437,10 +384,10 @@ Practica_Progra_Avanzada/
 |       |-- fabrica.py             RepositorioFactory (Factory)
 |       |-- servicio.py            guardar/cargar estado completo
 |       `-- exportadores.py        JSON / CSV (Strategy)
-`-- tests/                         208 tests
+`-- tests/                         173 tests
 ```
 
-## 11. Documentacion y roadmap
+## 10. Documentacion y roadmap
 
 * `README.md` (este documento) y `CHANGELOG.md`.
 * [`docs/CASOS_DE_USO.md`](docs/CASOS_DE_USO.md): escenarios financieros con
@@ -469,7 +416,7 @@ con origen **GitHub Actions**.
 futuras: datos reales de mercado, benchmark/alpha/beta, series historicas
 completas en SQLite y empaquetado de escritorio.
 
-## 12. Seguridad y licencia
+## 11. Seguridad y licencia
 
 - No consume credenciales ni servicios externos; `.env.example` solo tiene
   parametros de demo.

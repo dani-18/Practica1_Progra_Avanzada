@@ -1,7 +1,7 @@
 """Metricas de rentabilidad y riesgo sobre series de precios o de valor.
 
 El modulo es deliberadamente **puro** (sin estado) para que sea facil de
-testear y de reutilizar desde CLI, GUI, exportadores y simulaciones.
+testear y de reutilizar desde la GUI, los exportadores y las simulaciones.
 
 Todas las series se interpretan como valores al cierre de sesiones
 consecutivas. Las anualizaciones usan por defecto ``252`` sesiones por ano

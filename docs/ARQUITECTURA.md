@@ -9,7 +9,7 @@ la API generada con `pdoc` (`docs/api/`).
 
 ```
 +---------------------------------------------------------------+
-|  Interfaz: CLI (cli.py) | GUI Tkinter (gui.py) | __main__.py  |
+|  Interfaz: GUI Tkinter (gui.py) | __main__.py                 |
 +---------------------------------------------------------------+
 |  Aplicacion: metricas.py | gestor_carteras.py              |
 |         logging_config.py (transversal)                        |
@@ -54,7 +54,7 @@ repositorio en memoria y cambiar de backend sin tocar las clases de negocio.
   y snapshots de cada sesion; acepta una deriva y shocks extremos.
 * **`GestorCarteras`** registra varias carteras (una por usuario), rechaza
   duplicados sin distinguir mayusculas y mantiene la **cartera activa** que
-  usan la CLI, la GUI y la persistencia. Cada cartera conserva su efectivo,
+  usan la GUI y la persistencia. Cada cartera conserva su efectivo,
   posiciones, historial y curva de forma independiente.
 
 ### Igualdad por `id`
@@ -111,7 +111,7 @@ Metricas implementadas en `metricas.py` (funciones puras):
 
 `Exportador` define el contrato `exportar(datos, ruta)`. `ExportadorJSON` y
 `ExportadorCSV` son implementaciones intercambiables, y `crear_exportador`
-selecciona la concreta sin que CLI, GUI o `ServicioPersistencia` conozcan las
+selecciona la concreta sin que la GUI o `ServicioPersistencia` conozcan las
 clases de formato.
 
 ## 5. Persistencia
@@ -130,7 +130,7 @@ Backends:
 
 | Backend | Uso | Caracteristica |
 |---|---|---|
-| `RepositorioSQLite` | produccion / CLI / GUI | almacen principal, transacciones |
+| `RepositorioSQLite` | produccion / GUI | almacen principal, transacciones |
 | `RepositorioMemoria` | tests | rapido, `RLock` para acceso concurrente |
 | `RepositorioJSON` | intercambio de estados | fichero legible y portable |
 
@@ -163,7 +163,7 @@ sesion, aplicar shock, comprar/vender, guardar, cargar y exportar. Los helpers
 
 `excepciones.py` define `ErrorBolsa` y subclases que tambien heredan de la
 excepcion builtin adecuada (`ValueError`, `KeyError`, `RuntimeError`). Asi
-la CLI/GUI capturan `ErrorBolsa` y el codigo antiguo sigue funcionando.
+la GUI captura `ErrorBolsa` y el codigo antiguo sigue funcionando.
 
 * `InstrumentoDesconocido`, `InstrumentoDuplicado`.
 * `OperacionInvalida`, `FondosInsuficientes`, `PosicionInsuficiente`.
@@ -172,7 +172,7 @@ la CLI/GUI capturan `ErrorBolsa` y el codigo antiguo sigue funcionando.
 
 ## 8. Calidad
 
-* 208 tests, cobertura ~94 % (`--cov-fail-under=70` en CI).
+* 173 tests, cobertura ~94 % (`--cov-fail-under=70` en CI).
 * Black + Ruff + pre-commit.
 * CI multi-version (3.10-3.13), `pdoc` y despliegue de la API en GitHub Pages
   desde `main`.
@@ -188,8 +188,8 @@ idempotente y permite consola y/o fichero.
 
 * `obtener_logger(__name__)` crea loggers bajo `bolsa_sim`.
 * `INFO`: guardado/carga, shocks y operaciones relevantes.
-* `DEBUG`: sesiones, comandos y argumentos de la CLI.
-* `WARNING`: entradas/comandos inválidos.
+* `DEBUG`: sesiones, argumentos y configuración de logging.
+* `WARNING`: entradas o configuraciones inválidas.
 * `ERROR`: errores de dominio y persistencia antes de propagar.
 
 El entry point expone `--verbose`, `--quiet` y `--log-file`; también se puede

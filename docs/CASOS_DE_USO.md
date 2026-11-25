@@ -171,9 +171,9 @@ activa: Dani posiciones: ()
 activa: Ana posiciones: (('ACME', 1),)
 ```
 
-En la CLI equivaldria a `new Ana 2000 2`, `use Dani` y `portfolios`. Al
-guardar con `save`, SQLite conserva **las dos carteras** y `load` recupera
-ambas, seleccionando la que se indique.
+En la GUI equivale al desplegable **Usuario** y al boton **Nueva cartera**. Al
+guardar, SQLite conserva **las dos carteras** y al cargar recupera ambas,
+seleccionando la que se indique.
 
 ## Caso 5 — Polimorfismo en el dominio
 

@@ -12,7 +12,6 @@ from __future__ import annotations
 from .accion import Accion
 from .bono import Bono
 from .cartera import Cartera
-from .cli import Shell
 from .etf import ETF
 from .excepciones import (
     CarteraDesconocida,
@@ -67,7 +66,6 @@ __all__ = [
     "Operacion",
     "OperacionInvalida",
     "PosicionInsuficiente",
-    "Shell",
     "TipoInstrumentoDesconocido",
     "calcular_metricas",
     "configurar_logging",
