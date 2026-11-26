@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from .cartera import Cartera
 from .demo import cartera_demo, mercado_demo
-from .excepciones import ErrorBolsa
+from .excepciones import ErrorBolsa, FondosInsuficientes
 from .gestor_carteras import GestorCarteras
 from .mercado import Mercado
 from .metricas import metricas_cartera
@@ -261,8 +261,7 @@ class AplicacionGUI:
             self.selector_cartera.set(self.cartera.propietario)
         self._dibujar_curva()
         self.estado.set(
-            f"Sesion {self.mercado.sesion} | {self.cartera.propietario} | "
-            f"{self.mercado.nombre}"
+            f"Sesion {self.mercado.sesion} | {self.cartera.propietario} | {self.mercado.nombre}"
         )
 
     def _dibujar_curva(self) -> None:
@@ -317,7 +316,7 @@ class AplicacionGUI:
         """Pide usuario, efectivo y comision y crea una cartera activa."""
         from tkinter import messagebox, simpledialog
 
-        nombre = simpledialog.askstring("Nueva cartera", "Usuario:")
+        nombre = simpledialog.askstring("Nueva cartera", "Usuario:", parent=self.raiz)
         if not nombre:
             return
         efectivo = simpledialog.askfloat(
@@ -325,6 +324,7 @@ class AplicacionGUI:
             "Efectivo inicial (EUR):",
             initialvalue=1_000.0,
             minvalue=0.0,
+            parent=self.raiz,
         )
         if efectivo is None:
             return
@@ -333,13 +333,14 @@ class AplicacionGUI:
             "Comision por operacion (EUR):",
             initialvalue=1.0,
             minvalue=0.0,
+            parent=self.raiz,
         )
         if comision is None:
             return
         try:
             cartera = self._gestor.crear(nombre, efectivo, comision)
         except ErrorBolsa as exc:
-            messagebox.showerror("Nueva cartera", str(exc))
+            messagebox.showerror("Nueva cartera", str(exc), parent=self.raiz)
             return
         if self.repositorio is not None:
             cartera.repositorio = self.repositorio
@@ -359,16 +360,26 @@ class AplicacionGUI:
         self.estado.set(f"Shock aplicado: {variacion:+.0%}")
 
     def comprar(self) -> None:
-        from tkinter import simpledialog
+        from tkinter import messagebox, simpledialog
 
         tid = self._seleccionado()
         if tid is None:
             return
-        cantidad = simpledialog.askinteger("Comprar", f"Unidades de {tid}:", minvalue=1)
+        cantidad = simpledialog.askinteger(
+            "Comprar", f"Unidades de {tid}:", minvalue=1, parent=self.raiz
+        )
         if cantidad is None:
             return
         try:
             op = self.cartera.comprar(self.mercado, tid, cantidad)
+        except FondosInsuficientes as exc:
+            self.estado.set(f"Error: {exc}")
+            messagebox.showwarning(
+                "Dinero insuficiente",
+                "No tienes suficiente dinero para comprar este instrumento.",
+                parent=self.raiz,
+            )
+            return
         except ErrorBolsa as exc:
             self.estado.set(f"Error: {exc}")
             return
@@ -381,7 +392,9 @@ class AplicacionGUI:
         tid = self._seleccionado()
         if tid is None:
             return
-        cantidad = simpledialog.askinteger("Vender", f"Unidades de {tid}:", minvalue=1)
+        cantidad = simpledialog.askinteger(
+            "Vender", f"Unidades de {tid}:", minvalue=1, parent=self.raiz
+        )
         if cantidad is None:
             return
         try:
@@ -396,12 +409,13 @@ class AplicacionGUI:
         from tkinter import messagebox
 
         metricas = metricas_cartera(self.cartera, self.mercado)
-        messagebox.showinfo("Metricas de la cartera", str(metricas))
+        messagebox.showinfo("Metricas de la cartera", str(metricas), parent=self.raiz)
 
     def guardar(self) -> None:
         from tkinter import filedialog
 
         ruta = filedialog.asksaveasfilename(
+            parent=self.raiz,
             defaultextension=".sqlite",
             filetypes=[("SQLite", "*.sqlite"), ("JSON", "*.json")],
         )
@@ -422,7 +436,8 @@ class AplicacionGUI:
         from tkinter import filedialog, messagebox
 
         ruta = filedialog.askopenfilename(
-            filetypes=[("SQLite/JSON", "*.sqlite *.db *.json"), ("Todos", "*.*")]
+            parent=self.raiz,
+            filetypes=[("SQLite/JSON", "*.sqlite *.db *.json"), ("Todos", "*.*")],
         )
         if not ruta:
             return
@@ -441,7 +456,7 @@ class AplicacionGUI:
             gestor = GestorCarteras.desde_carteras(carteras, activa=activa)
         except ErrorBolsa as exc:
             repositorio.cerrar()
-            messagebox.showerror("Error al cargar", str(exc))
+            messagebox.showerror("Error al cargar", str(exc), parent=self.raiz)
             return
         self.mercado = mercado
         self._gestor = gestor
@@ -459,6 +474,7 @@ class AplicacionGUI:
         from tkinter import filedialog, messagebox
 
         ruta = filedialog.asksaveasfilename(
+            parent=self.raiz,
             defaultextension=".json",
             filetypes=[("JSON", "*.json"), ("CSV", "*.csv")],
         )
@@ -467,7 +483,9 @@ class AplicacionGUI:
         formato = "csv" if ruta.lower().endswith(".csv") else "json"
         destino = exportar_resultados(self.mercado, self.cartera, ruta, formato)
         self.estado.set(f"Exportado en {destino}")
-        messagebox.showinfo("Exportacion", f"Resultados exportados en:\n{destino}")
+        messagebox.showinfo(
+            "Exportacion", f"Resultados exportados en:\n{destino}", parent=self.raiz
+        )
 
     def cerrar(self) -> None:
         """Cierra el repositorio abierto por la ventana, si lo hay."""

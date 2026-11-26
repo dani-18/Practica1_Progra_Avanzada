@@ -98,13 +98,27 @@ def test_gui_compra_y_venta(ventana) -> None:
 
 
 def test_gui_errores_de_compra(ventana) -> None:
-    app, _, monkeypatch = ventana
+    app, raiz, monkeypatch = ventana
+    import tkinter.messagebox as messagebox
     import tkinter.simpledialog as simpledialog
 
+    avisos: list[tuple[str, str, object]] = []
+
+    def fake_showwarning(titulo, texto, **kw):
+        avisos.append((titulo, texto, kw.get("parent")))
+
     monkeypatch.setattr(simpledialog, "askinteger", lambda *a, **k: 100)
+    monkeypatch.setattr(messagebox, "showwarning", fake_showwarning)
     app.tabla.selection_set(app.tabla.get_children()[0])
     app.comprar()
     assert "Error:" in app.estado.get()
+    assert avisos == [
+        (
+            "Dinero insuficiente",
+            "No tienes suficiente dinero para comprar este instrumento.",
+            raiz,
+        )
+    ]
 
 
 def test_gui_metricas(ventana) -> None:
@@ -112,7 +126,9 @@ def test_gui_metricas(ventana) -> None:
     import tkinter.messagebox as messagebox
 
     mensajes: list[str] = []
-    monkeypatch.setattr(messagebox, "showinfo", lambda titulo, texto: mensajes.append(titulo))
+    monkeypatch.setattr(
+        messagebox, "showinfo", lambda titulo, texto, **kw: mensajes.append(titulo)
+    )
     app.mostrar_metricas()
     assert "Metricas de la cartera" in mensajes
 
@@ -135,7 +151,7 @@ def test_gui_guardar_cargar_exportar(ventana, tmp_path) -> None:
     mensajes: list[str] = []
     import tkinter.messagebox as messagebox
 
-    monkeypatch.setattr(messagebox, "showinfo", lambda titulo, texto: mensajes.append(texto))
+    monkeypatch.setattr(messagebox, "showinfo", lambda titulo, texto, **kw: mensajes.append(texto))
     app.exportar()
     assert destino.exists()
     assert mensajes
